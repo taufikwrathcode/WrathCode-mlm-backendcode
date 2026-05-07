@@ -1,6 +1,5 @@
 import { Deposit } from "../models/deposit.js";
 import Razorpay from "razorpay";
-import { Wallet } from "../models/wallet.js";
 import { addTransaction } from "../Utils/wallet.js";
 import crypto from "crypto";
 import { User } from "../models/User.js";
@@ -10,13 +9,12 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_SECRET
 });
 
-// =================  DEPOSIT=================
+// ================= USER: CREATE DEPOSIT (WITH TRANSACTION ID) =================
 export const createDeposit = async (req, res) => {
   try {
     const { amount, method, upiId, bankDetails } = req.body;
     const userId = req.user._id;
 
-    // ========== 1. VALIDATION ==========
     if (!amount || amount < 10) {
       return res.status(400).json({ 
         success: false, 
@@ -31,28 +29,30 @@ export const createDeposit = async (req, res) => {
       });
     }
 
-    // ========== 2. METHOD 1: UPI (Auto - Real Payment) ==========
+    
+    const transactionId = `DEP${Date.now()}${userId.toString().slice(-6)}`;
+
+    // METHOD 1: UPI
     if (method === "upi") {
       if (!upiId || !upiId.includes("@")) {
         return res.status(400).json({ 
           success: false, 
-          message: "Valid UPI ID required (e.g., user@okhdfcbank)" 
+          message: "Valid UPI ID required" 
         });
       }
 
       const paymentId = `UPI_${Date.now()}_${userId}`;
 
-      // Store deposit request
-      const deposit = await Deposit.create({
+      await Deposit.create({
         user: userId,
         orderId: paymentId,
         amount: amount,
         method: "upi",
         upiId: upiId,
-        status: "pending"
+        status: "pending",
+        transactionId: transactionId
       });
 
-      // Generate UPI payment link
       const upiLink = `paytmmp://pay?pa=${upiId}&pn=MLM%20Network&am=${amount}&cu=INR&tn=Wallet%20Deposit&payid=${paymentId}`;
 
       return res.status(200).json({
@@ -60,25 +60,24 @@ export const createDeposit = async (req, res) => {
         method: "upi",
         message: "UPI payment initiated",
         paymentId: paymentId,
+        transactionId: transactionId,
         upiId: upiId,
         amount: amount,
-        upiLink: upiLink,
-        instructions: "Open this link in any UPI app to complete payment"
+        upiLink: upiLink
       });
     }
 
-    // ========== 3. METHOD 2: BANK TRANSFER (Admin Approval Required) ==========
+    // METHOD 2: BANK TRANSFER
     if (method === "bank") {
       if (!bankDetails || !bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.ifsc || !bankDetails.accountHolder) {
         return res.status(400).json({ 
           success: false, 
-          message: "All bank details required: bankName, accountNumber, ifsc, accountHolder" 
+          message: "All bank details required" 
         });
       }
 
       const referenceId = `BANK_${Date.now()}_${userId}`;
 
-      // Company bank details for user to transfer
       const companyBank = {
         accountName: process.env.BANK_ACCOUNT_NAME || "MLM Network India Pvt Ltd",
         accountNumber: process.env.BANK_ACCOUNT_NUMBER || "1234567890123456",
@@ -86,14 +85,14 @@ export const createDeposit = async (req, res) => {
         ifsc: process.env.BANK_IFSC || "SBIN0001234"
       };
 
-      // Store deposit request
       await Deposit.create({
         user: userId,
         orderId: referenceId,
         amount: amount,
         method: "bank",
         bankDetails: bankDetails,
-        status: "pending"
+        status: "pending",
+        transactionId: transactionId
       });
 
       return res.status(200).json({
@@ -101,6 +100,7 @@ export const createDeposit = async (req, res) => {
         method: "bank",
         message: "Bank transfer request submitted",
         referenceId: referenceId,
+        transactionId: transactionId,
         amount: amount,
         yourBankDetails: bankDetails,
         transferTo: companyBank,
@@ -112,7 +112,7 @@ export const createDeposit = async (req, res) => {
       });
     }
 
-    // ========== 4. METHOD 3: RAZORPAY (Auto - Real Payment) ==========
+    // METHOD 3: RAZORPAY
     if (method === "razorpay") {
       const options = {
         amount: Number(amount) * 100,
@@ -120,7 +120,7 @@ export const createDeposit = async (req, res) => {
         receipt: `receipt_${Date.now()}`,
         notes: {
           userId: userId.toString(),
-          method: "razorpay"
+          transactionId: transactionId
         }
       };
 
@@ -131,7 +131,9 @@ export const createDeposit = async (req, res) => {
         orderId: order.id,
         amount: amount,
         method: "razorpay",
-        status: "pending"
+        status: "pending",
+        transactionId: transactionId,
+        razorpayOrderId: order.id
       });
 
       return res.status(200).json({
@@ -139,6 +141,7 @@ export const createDeposit = async (req, res) => {
         method: "razorpay",
         message: "Razorpay order created",
         orderId: order.id,
+        transactionId: transactionId,
         amount: amount,
         keyId: process.env.RAZORPAY_KEY_ID,
         currency: "INR"
@@ -156,13 +159,12 @@ export const createDeposit = async (req, res) => {
   }
 };
 
-// ================= VERIFY RAZORPAY PAYMENT =================
+// ================= USER: VERIFY RAZORPAY PAYMENT =================
 export const verifyDeposit = async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount } = req.body;
     const userId = req.user._id;
 
-    // Verify signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_SECRET)
@@ -173,7 +175,6 @@ export const verifyDeposit = async (req, res) => {
       return res.status(400).json({ success: false, message: "Payment verification failed" });
     }
 
-    // Update deposit
     const deposit = await Deposit.findOneAndUpdate(
       { orderId: razorpay_order_id },
       { status: "approved", razorpayPaymentId: razorpay_payment_id },
@@ -184,10 +185,7 @@ export const verifyDeposit = async (req, res) => {
       return res.status(404).json({ success: false, message: "Deposit not found" });
     }
 
-    // Update wallet
     const user = await User.findById(userId);
-    user.wallet = (user.wallet || 0) + Number(amount);
-    await user.save();
 
     await addTransaction({
       userId: user._id,
@@ -201,6 +199,7 @@ export const verifyDeposit = async (req, res) => {
     res.status(200).json({ 
       success: true, 
       message: "Payment verified! Wallet updated.",
+      transactionId: deposit.transactionId,
       walletBalance: user.wallet
     });
 
@@ -209,7 +208,32 @@ export const verifyDeposit = async (req, res) => {
   }
 };
 
-// ================= VERIFY UPI PAYMENT (Webhook/Callback) =================
+// ================= USER: GET DEPOSIT HISTORY =================
+export const getDepositHistory = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    const deposits = await Deposit.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .select("amount method status createdAt transactionId");
+
+    res.status(200).json({
+      success: true,
+      deposits: deposits.map(d => ({
+        amount: d.amount,
+        method: d.method,
+        status: d.status,
+        date: d.createdAt,
+        transactionId: d.transactionId
+      }))
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ================= USER: VERIFY UPI PAYMENT =================
 export const verifyUPIPayment = async (req, res) => {
   try {
     const { paymentId, transactionId, status } = req.body;
@@ -222,8 +246,6 @@ export const verifyUPIPayment = async (req, res) => {
     if (status === "success" && deposit.status === "pending") {
       const user = await User.findById(deposit.user);
       if (user) {
-        user.wallet = (user.wallet || 0) + deposit.amount;
-        await user.save();
 
         await addTransaction({
           userId: user._id,
@@ -243,75 +265,6 @@ export const verifyUPIPayment = async (req, res) => {
     }
 
     res.status(200).json({ success: true });
-
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// ================= ADMIN: VERIFY BANK TRANSFER =================
-export const adminVerifyBankTransfer = async (req, res) => {
-  try {
-    const { depositId, status } = req.body;
-    const adminId = req.admin._id;
-
-    const deposit = await Deposit.findById(depositId);
-    if (!deposit) {
-      return res.status(404).json({ success: false, message: "Deposit not found" });
-    }
-
-    if (status === "approved") {
-      const user = await User.findById(deposit.user);
-      if (user) {
-        user.wallet = (user.wallet || 0) + deposit.amount;
-        await user.save();
-
-        await addTransaction({
-          userId: user._id,
-          type: "credit",
-          walletType: "main",
-          amount: deposit.amount,
-          description: `Bank Transfer Deposit: ${deposit.orderId}`,
-          status: "paid"
-        });
-      }
-    }
-
-    deposit.status = status;
-    deposit.approvedBy = adminId;
-    deposit.approvedAt = new Date();
-    await deposit.save();
-
-    res.status(200).json({ 
-      success: true, 
-      message: `Bank transfer ${status}`,
-      deposit
-    });
-
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// ================= GET DEPOSIT HISTORY =================
-export const getDepositHistory = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    
-    const deposits = await Deposit.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .select("amount method status createdAt razorpayPaymentId orderId");
-
-    res.status(200).json({
-      success: true,
-      deposits: deposits.map(d => ({
-        amount: d.amount,
-        method: d.method,
-        status: d.status,
-        date: d.createdAt,
-        transactionId: d.razorpayPaymentId || d.orderId
-      }))
-    });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

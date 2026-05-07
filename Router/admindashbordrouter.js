@@ -22,6 +22,7 @@ import {
   getCommissionByUserId,
   getIncome,
   getAllWallets,
+  getWithdrawal,
 } from "../Controllers/AdminDashordController.js";
 import { getAllKYC, getKYCDetails } from "../Controllers/adminApprovedController.js";
 import { adminProtect } from "../middleware/MIddlewares.js";
@@ -84,6 +85,7 @@ router.get("/income/user", adminProtect, getIncome);
 //==============================WALLET MANAGEMENT===========================
 router.get("/wallets", adminProtect, getAllWallets);
 
-
+//==============================WITHDRAWAL MANAGEMENT===========================
+router.get("/withdrawals", adminProtect, getWithdrawal);
 
 export const AdminDashboardRouter = router;

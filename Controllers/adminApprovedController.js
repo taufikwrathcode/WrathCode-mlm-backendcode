@@ -4,6 +4,8 @@ import jwt from "jsonwebtoken";
 
 import { KYC } from "../models/KYC.js";
 import { User } from "../models/User.js";
+import { Withdrawal } from "../models/Withdrawal.js";
+import { addTransaction } from "../Utils/wallet.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -323,6 +325,86 @@ export const editReferral = async (req, res) => {
 
   } catch (error) {
     console.error("Edit Referral Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ================= ADMIN UPDATE WITHDRAWAL STATUS =================
+export const updateWithdrawalStatus = async (req, res) => {
+  try {
+    const { withdrawalId } = req.params;
+    const { status, adminRemark } = req.body;
+    
+    if (!status || !["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Status must be 'approved' or 'rejected'" 
+      });
+    }
+    
+    const withdrawal = await Withdrawal.findById(withdrawalId).populate("user");
+    if (!withdrawal) {
+      return res.status(404).json({ success: false, message: "Withdrawal not found" });
+    }
+    
+    if (withdrawal.status !== "pending") {
+      return res.status(400).json({ success: false, message: "Withdrawal already processed" });
+    }
+    
+    if (status === "approved") {
+      const user = withdrawal.user;
+      
+      // Check balance again
+      if (user.wallet < withdrawal.amount) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Insufficient balance in user wallet" 
+        });
+      }
+      
+      // Deduct from wallet
+      user.wallet -= withdrawal.amount;
+      await user.save();
+      
+      // Add transaction record
+      await addTransaction({
+        userId: user._id,
+        type: "debit",
+        walletType: "main",
+        amount: withdrawal.amount,
+        description: `Withdrawal approved - ${withdrawal.method} - ID: ${withdrawal.transactionId}`,
+        status: "paid"
+      });
+      
+      withdrawal.status = "approved";
+      withdrawal.processedAt = new Date();
+      withdrawal.adminRemark = adminRemark || "Approved by admin";
+      // ✅ Transaction ID already exists, DO NOT generate new one
+      
+    } else if (status === "rejected") {
+      withdrawal.status = "rejected";
+      withdrawal.processedAt = new Date();
+      withdrawal.adminRemark = adminRemark || "Rejected by admin";
+    }
+    
+    await withdrawal.save();
+    
+    res.status(200).json({
+      success: true,
+      message: `Withdrawal ${status} successfully`,
+      data: {
+        withdrawalId: withdrawal._id,
+        userName: withdrawal.user?.name,
+        amount: withdrawal.amount,
+        transactionId: withdrawal.transactionId,  // ✅ Show existing ID
+        status: withdrawal.status,
+        adminRemark: withdrawal.adminRemark,
+        processedAt: withdrawal.processedAt
+      }
+    });
+    
+  } catch (error) {
+    console.error("Update Withdrawal Status Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

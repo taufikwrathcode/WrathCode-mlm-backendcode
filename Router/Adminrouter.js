@@ -11,7 +11,7 @@ import {
   blockUnblockUser,
   deleteUser,
   editReferral,
-
+  updateWithdrawalStatus,
 } from "../Controllers/adminApprovedController.js";
 import {
   updateBinaryConfig,
@@ -92,7 +92,9 @@ router.patch("/income/add", adminProtect, updateIncomeConfig);
 
 //==============================WALLET MANAGEMENT===========================
 router.patch("/wallets/user/status/:userId", adminProtect, updateWalletStatus);
-// Payment Management
+
+// ================================= Withdrawal Management============================
+router.patch("/withdrawal/status/:withdrawalId", adminProtect, updateWithdrawalStatus);
 
 // Admin get all tickets (with optional status filter)
 router.get("/all-tickets", adminProtect, getAllTickets);

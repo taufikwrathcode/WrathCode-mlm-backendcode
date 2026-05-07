@@ -9,7 +9,7 @@ import {
   processUPIPayout 
 } from "../Utils/razorpayPayout.js";
 
-// ================= USER: REQUEST WITHDRAWAL =================
+// ================= USER: REQUEST WITHDRAWAL (WITH TRANSACTION ID) =================
 export const requestWithdrawal = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -85,6 +85,9 @@ export const requestWithdrawal = async (req, res) => {
     const taxAmount = (amount * 10) / 100;
     const finalAmount = amount - taxAmount;
 
+    // ✅ Generate Transaction ID immediately
+    const transactionId = `WD${Date.now()}${userId.toString().slice(-6)}`;
+
     // Create withdrawal request
     const withdrawal = await Withdrawal.create({
       user: userId,
@@ -94,7 +97,8 @@ export const requestWithdrawal = async (req, res) => {
       method,
       paymentDetails,
       status: "pending",
-      referenceId: `WD_${Date.now()}_${userId.toString().slice(-6)}`
+      referenceId: `WD_${Date.now()}_${userId.toString().slice(-6)}`,
+      transactionId: transactionId  // ✅ Set immediately
     });
 
     res.status(200).json({
@@ -103,6 +107,7 @@ export const requestWithdrawal = async (req, res) => {
       data: {
         withdrawalId: withdrawal._id,
         referenceId: withdrawal.referenceId,
+        transactionId: transactionId,  // ✅ Show in response
         amount: withdrawal.amount,
         taxAmount: withdrawal.taxAmount,
         finalAmount: withdrawal.finalAmount,
@@ -117,8 +122,8 @@ export const requestWithdrawal = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-//================== GET WITHDRAWAL HISTORY =================
 
+// ================= USER: GET WITHDRAWAL HISTORY (WITH TRANSACTION ID) =================
 export const getWithdrawalHistory = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -141,6 +146,7 @@ export const getWithdrawalHistory = async (req, res) => {
       netAmount: item.finalAmount,
       status: item.status,
       paymentMethod: item.method,
+      transactionId: item.transactionId  // ✅ Added
     }));
 
     return res.status(200).json({

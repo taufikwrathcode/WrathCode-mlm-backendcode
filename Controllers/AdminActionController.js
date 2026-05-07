@@ -494,8 +494,6 @@ export const createDeposit = async (req, res) => {
     });
     
     if (status === "approved") {
-      user.wallet = (user.wallet || 0) + amount;
-      await user.save();
       
       await addTransaction({
         userId: user._id,
@@ -527,70 +525,81 @@ export const createDeposit = async (req, res) => {
 
 
 // ================= UPDATE DEPOSIT (BY USER ID) =================
+
 export const updateDeposit = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { amount, paymentMethod, transactionId, date, status } = req.body;
+    const { status } = req.body;
+    
+    if (!status || !["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Status must be 'approved' or 'rejected'" 
+      });
+    }
     
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
     
-    const deposit = await Deposit.findOne({ user: userId }).sort({ createdAt: -1 });
+    // ✅ Find the LATEST PENDING deposit
+    const deposit = await Deposit.findOne({ 
+      user: userId, 
+      status: "pending" 
+    }).sort({ createdAt: -1 });
+    
     if (!deposit) {
-      return res.status(404).json({ success: false, message: "No deposit found for this user" });
+      return res.status(404).json({ success: false, message: "No pending deposit found" });
     }
     
-    const oldAmount = deposit.amount;
-    const oldStatus = deposit.status;
+    const depositAmount = deposit.amount;
     
-    if (amount) deposit.amount = amount;
-    if (paymentMethod) deposit.method = paymentMethod;
-    if (transactionId) deposit.razorpayPaymentId = transactionId;
-    if (date) deposit.createdAt = new Date(date);
-    if (status) deposit.status = status;
+    if (deposit.status === "approved") {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Deposit already approved" 
+      });
+    }
     
+    // ✅ Update deposit status
+    deposit.status = status;
+    deposit.approvedBy = req.admin._id;
+    deposit.approvedAt = new Date();
     await deposit.save();
     
-    if (status === "approved" && oldStatus !== "approved") {
-      user.wallet = (user.wallet || 0) + deposit.amount;
-      await user.save();
+    if (status === "approved") {
+      // ✅ CUMULATIVE: Add to existing wallet
       
       await addTransaction({
         userId: user._id,
         type: "credit",
         walletType: "main",
-        amount: deposit.amount,
-        description: `Deposit: ${deposit.razorpayPaymentId}`,
+        amount: depositAmount,
+        description: `Deposit approved: ${deposit.transactionId}`,
         status: "paid"
       });
     }
     
-    if (oldStatus === "approved" && status !== "approved") {
-      user.wallet = (user.wallet || 0) - oldAmount;
-      await user.save();
-    }
-    
     res.status(200).json({
       success: true,
-      message: "Deposit updated successfully",
+      message: `Deposit ${status} successfully`,
       data: {
         userName: user.name,
-        amount: deposit.amount,
+        amount: depositAmount,
         paymentMethod: deposit.method,
-        transactionId: deposit.razorpayPaymentId,
+        transactionId: deposit.transactionId,
         date: deposit.createdAt,
-        status: deposit.status
+        status: deposit.status,
+        walletBalance: user.wallet
       }
     });
     
   } catch (error) {
+    console.error("Update Deposit Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
 // ================= CREATE NEW COMMISSION =================
 export const createCommission = async (req, res) => {
   try {

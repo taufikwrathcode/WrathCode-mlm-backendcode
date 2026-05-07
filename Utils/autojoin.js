@@ -10,8 +10,6 @@ export const joinBinaryAuto = async (user) => {
   try {
     console.log("=== joinBinaryAuto CALLED ===");
     console.log("User Name:", user.name);
-    console.log("user.parent:", user.parent);
-    console.log("user.parentUnilevel:", user.parentUnilevel);
     
     if (user.parent) {
       console.log("User already joined binary tree");
@@ -31,8 +29,6 @@ export const joinBinaryAuto = async (user) => {
     }
     
     console.log("Sponsor found:", sponsor.name);
-    console.log("Sponsor.left:", sponsor.left);
-    console.log("Sponsor.right:", sponsor.right);
     
     let finalParent = sponsor;
     let finalPosition = null;
@@ -86,8 +82,6 @@ export const joinMatrixAuto = async (user) => {
   try {
     console.log("=== joinMatrixAuto CALLED ===");
     console.log("User Name:", user.name);
-    console.log("user.parentMatrix:", user.parentMatrix);
-    console.log("user.parentUnilevel:", user.parentUnilevel);
     
     if (user.parentMatrix) {
       console.log("User already joined matrix tree");
@@ -166,9 +160,8 @@ export const joinUnilevelAuto = async (user) => {
   try {
     console.log("=== joinUnilevelAuto CALLED ===");
     console.log("User Name:", user.name);
-    console.log("user.parentUnilevel:", user.parentUnilevel);
     
-    if (user.parentUnilevel) {
+    if (user.parentUnilevel && user.parentUnilevel.toString() === user.parentUnilevel?.toString()) {
       console.log("User already joined unilevel tree");
       return;
     }

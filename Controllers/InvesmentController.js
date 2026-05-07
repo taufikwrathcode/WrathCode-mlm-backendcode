@@ -707,7 +707,6 @@ export const getInvestment = async (req, res) => {
       if (isCompleted) {
         totalReturns += totalReturn;
       } else {
-        pendingReturns += totalReturn;
         activeCount++;
 
         const daysPassed = Math.floor(
@@ -721,6 +720,9 @@ export const getInvestment = async (req, res) => {
 
         const currentReturn =
           (amount * limits.dailyPercent * daysPassed) / 100;
+
+        totalReturns += currentReturn;
+        pendingReturns += (totalReturn - currentReturn);
 
         activeInvestments.push({
           plan: plan.planSelected || plan.name,
@@ -772,9 +774,9 @@ export const getInvestment = async (req, res) => {
 
       //  SUMMARY
       summary: {
-        totalInvested: `$${totalInvested}`,
-        totalReturns: `$${totalReturns}`,
-        pendingReturns: `$${pendingReturns}`,
+        totalInvested: `$${totalInvested.toFixed(2)}`,
+        totalReturns: `$${totalReturns.toFixed(2)}`,
+        pendingReturns: `$${pendingReturns.toFixed(2)}`,
       },
 
       //  ACTIVE COUNT

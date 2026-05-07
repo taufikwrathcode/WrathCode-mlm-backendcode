@@ -43,38 +43,46 @@ export const getProfile = async (req, res) => {
     // ===== ACTIVE PLANS =====
     const activePlans = user.plans?.map((p) => p.name) || [];
 
-    // ===== RESPONSE =====
-    return res.status(200).json({
-      success: true,
+      const achievements = [
+        { id: 1, title: "Account Created", description: "Successfully joined the platform", unlocked: true },
+        { id: 2, title: "Profile Completed", description: "Filled out all profile details", unlocked: profilePercent === 100 },
+        { id: 3, title: "Team Builder", description: "Referred your first member", unlocked: totalReferrals > 0 },
+        { id: 4, title: "First Income", description: "Earned your first commission", unlocked: user.totalEarned > 0 },
+        { id: 5, title: `Rank: ${user.rank}`, description: `Reached ${user.rank} rank level`, unlocked: true }
+      ];
 
-      profile: {
-        name: user.name,
-        email: user.email,
-        isActive: user.isActive,
-        kycStatus,
-        rank: user.rank,
-        activePlans
-      },
+      // ===== RESPONSE =====
+      return res.status(200).json({
+        success: true,
 
-      statistics: {
-        referralCode: user.referral,
-        totalReferrals,
-        totalEarning: user.totalEarned,
-        profileCompletion: profilePercent
-      },
+        profile: {
+          name: user.name,
+          email: user.email,
+          isActive: user.isActive,
+          kycStatus,
+          rank: user.rank,
+          activePlans
+        },
 
-      accountInfo: {
-        name: user.name,
-        email: user.email,
-        phone,
-        city,
-        address,
-        country: userCountry,   // ✅ yaha use karo
-        memberSince: user.createdAt
-      },
+        statistics: {
+          referralCode: user.referral,
+          totalReferrals,
+          totalEarning: user.totalEarned,
+          profileCompletion: profilePercent
+        },
 
-      achievements: []
-    });
+        accountInfo: {
+          name: user.name,
+          email: user.email,
+          phone,
+          city,
+          address,
+          country: userCountry,
+          memberSince: user.createdAt
+        },
+
+        achievements
+      });
 
   } catch (error) {
     console.error("GET PROFILE ERROR:", error);
@@ -100,7 +108,7 @@ export const Updateprofile = async (req, res) => {
       country,
       state,
       pincode
-    } = req.body;
+    } = req.body || {};
 
     // ===== FIND USER =====
     const user = await User.findById(userId);

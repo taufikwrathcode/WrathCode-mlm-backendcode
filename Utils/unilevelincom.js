@@ -57,7 +57,6 @@ export const distributeUnilevelIncome = async (user, amount) => {
         status: "paid"
       });
       
-      parent.wallet = (parent.wallet || 0) + income;
       parent.totalEarned = (parent.totalEarned || 0) + income;
       await parent.save();
     }

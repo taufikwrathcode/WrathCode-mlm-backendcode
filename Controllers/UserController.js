@@ -7,53 +7,58 @@ import { sendRegistrationEmail } from "../Utils/Email.js";
 // ------------------- User Register -------------------
 export const Register = async (req, res) => {
   try {
-    const { name, email, password, confirmPassword, referral, referrel } = req.body;
+    const { name, email, password, confirmPassword, referral, referrel } =
+      req.body;
 
     // ================= VALIDATION =================
     if (!name || !email || !password || !confirmPassword) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Name, Email, Password and Confirm Password are required" 
+        message: "Name, Email, Password and Confirm Password are required",
       });
     }
 
     if (password !== confirmPassword) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Password and Confirm Password do not match" 
+        message: "Password and Confirm Password do not match",
       });
     }
 
     // ================= CHECK EXISTING USER =================
     const exist = await User.findOne({ email });
     if (exist) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Email already registered" 
+        message: "Email already registered",
       });
     }
 
     // ================= REFERRAL HANDLING (OPTIONAL) =================
     let parent = null;
     let referredByName = null;
-    
+
     // Check both field names
     const referralCode = referral || referrel;
-    
+
     if (referralCode && referralCode.trim() !== "") {
-      parent = await User.findOne({ referral: referralCode.trim() }) || 
-               await Admin.findOne({ referral: referralCode.trim() });
-      
+      parent =
+        (await User.findOne({ referral: referralCode.trim() })) ||
+        (await Admin.findOne({ referral: referralCode.trim() }));
+
       if (!parent) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: "Invalid referral code" 
+          message: "Invalid referral code",
         });
       }
       referredByName = parent.name;
-      
+
       console.log("Parent found:", parent.name);
-      console.log("Parent pendingReferralCount before:", parent.pendingReferralCount);
+      console.log(
+        "Parent pendingReferralCount before:",
+        parent.pendingReferralCount,
+      );
     }
 
     // ================= GENERATE UNIQUE REFERRAL CODE =================
@@ -70,41 +75,44 @@ export const Register = async (req, res) => {
       confirmPassword,
       referral: newReferralCode,
     });
-
+    console.log(user);
     // ================= IF REFERRAL EXISTS - SET parentUnilevel BEFORE SAVE =================
     if (parent) {
       user.parentUnilevel = parent._id;
-      console.log("✅ Set parentUnilevel to:", user.parentUnilevel);
+      console.log(" Set parentUnilevel to:", user.parentUnilevel);
     }
 
     // ================= SAVE USER FIRST =================
     await user.save();
-    console.log("✅ User saved successfully:", user.name);
+    console.log(" User saved successfully:", user.name);
 
     // ================= IF REFERRAL EXISTS - UPDATE PARENT AFTER SAVE =================
     if (parent) {
       // Add to parent's referredUsers array and increment pendingReferralCount
-      await User.findByIdAndUpdate(
-        parent._id,
-        {
-          $push: {
-            referredUsers: {
-              user: user._id,
-              hasInvested: false,
-              selectedPlan: null,
-              amountInvested: 0,
-              investedAt: null
-            },
-            childrenUni: user._id
+      await User.findByIdAndUpdate(parent._id, {
+        $push: {
+          referredUsers: {
+            user: user._id,
+            hasInvested: false,
+            selectedPlan: null,
+            amountInvested: 0,
+            investedAt: null,
           },
-          $inc: { pendingReferralCount: 1 }
-        }
-      );
-      
+          childrenUni: user._id,
+        },
+        $inc: { pendingReferralCount: 1 },
+      });
+
       // Verify update
       const updatedParent = await User.findById(parent._id);
-      console.log("✅ Parent pendingReferralCount after:", updatedParent.pendingReferralCount);
-      console.log("✅ Parent referredUsers count:", updatedParent.referredUsers?.length || 0);
+      console.log(
+        " Parent pendingReferralCount after:",
+        updatedParent.pendingReferralCount,
+      );
+      console.log(
+        " Parent referredUsers count:",
+        updatedParent.referredUsers?.length || 0,
+      );
     }
 
     // ================= GENERATE TOKEN =================
@@ -118,7 +126,9 @@ export const Register = async (req, res) => {
     // ================= RESPONSE =================
     return res.status(201).json({
       success: true,
-      message: parent ? "Registration successful! Sponsor will get bonus when you invest." : "Registration successful!",
+      message: parent
+        ? "Registration successful! Sponsor will get bonus when you invest."
+        : "Registration successful!",
       token: userToken,
       data: {
         user: {
@@ -127,16 +137,27 @@ export const Register = async (req, res) => {
           email: user.email,
           referral: user.referral,
           referredBy: referredByName || null,
-          hasReferral: parent ? true : false
-        }
-      }
+          hasReferral: parent ? true : false,
+        },
+      },
     });
 
+    // ✅ ADD CONSOLE LOG HERE
+    console.log("=== REGISTER RESPONSE DATA ===");
+    console.log("User ID:", user._id);
+    console.log("User Name:", user.name);
+    console.log("User Email:", user.email);
+    console.log("Referral Code:", user.referral);
+    console.log("Referred By:", referredByName || "None");
+    console.log("Has Referral:", parent ? true : false);
+    console.log("Parent ID:", parent?._id || "None");
+    console.log("Parent Name:", parent?.name || "None");
+    console.log("==============================");
   } catch (err) {
     console.error("Register error:", err);
-    return res.status(500).json({ 
-      success: false, 
-      message: err.message || "Server error" 
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Server error",
     });
   }
 };
@@ -147,17 +168,17 @@ export const Login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Email and password are required" 
+        message: "Email and password are required",
       });
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Invalid email or password" 
+        message: "Invalid email or password",
       });
     }
 
@@ -165,21 +186,21 @@ export const Login = async (req, res) => {
     if (user.isBlocked) {
       return res.status(403).json({
         success: false,
-        message: "Your account has been blocked. Please contact admin."
+        message: "Your account has been blocked. Please contact admin.",
       });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Invalid email or password" 
+        message: "Invalid email or password",
       });
     }
 
     // Update last login
     user.lastLogin = new Date();
-    
+
     // Generate token
     const userToken = Usertoken(user);
     user.token = userToken;
@@ -199,17 +220,16 @@ export const Login = async (req, res) => {
           wallet: user.wallet,
           totalEarned: user.totalEarned,
           activeReferralCount: user.activeReferralCount || 0,
-          pendingReferralCount: user.pendingReferralCount || 0
-        }
+          pendingReferralCount: user.pendingReferralCount || 0,
+        },
       },
-      token: userToken
+      token: userToken,
     });
-
   } catch (err) {
     console.error("Login error:", err);
-    return res.status(500).json({ 
+    return res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message,
     });
   }
 };

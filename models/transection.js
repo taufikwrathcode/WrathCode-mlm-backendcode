@@ -5,12 +5,12 @@ const TransactionSchema = new mongoose.Schema({
 
   type: {
     type: String,
-    enum: ["credit", "debit"]
+    enum: ["credit", "debit", "transfer"]
   },
 
   walletType: {
     type: String,
-    enum: ["main", "binary", "matrix", "unilevel", "roi"]
+    enum: ["main", "binary", "matrix", "unilevel", "roi", "income", "fund", "internal"]
   },
 
   source: {

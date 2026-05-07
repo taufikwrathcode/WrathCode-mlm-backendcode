@@ -4,8 +4,8 @@ import {
   joinBinary, getBinaryTree, getListView
 
 } from "../Controllers/binaryController.js";
-import { joinMatrix,getMatrixTree } from "../Controllers/MatrixContreoller.js";
-import { joinUnilevel } from "../Controllers/UnilevelController.js";
+import { joinMatrix, getMatrixTree } from "../Controllers/MatrixContreoller.js";
+import { joinUnilevel, getUnilevelTree } from "../Controllers/UnilevelController.js";
 import { Userprotect } from "../middleware/MIddlewares.js";
 
 const router = Router();
@@ -17,10 +17,11 @@ router.get("/binary/tree", Userprotect, getBinaryTree);
 // Matrix routes
 router.post("/matrix/join", Userprotect, joinMatrix);
 //==============================Get Matrix Tree====================================
-router.get("/matrix/tree", Userprotect, getMatrixTree);
+router.get("/matrix/sponsor", Userprotect, getMatrixTree);
 
 // Unilevel routes
 router.post("/unilevel/join", Userprotect, joinUnilevel);
+router.get("/unilevel/tree", Userprotect, getUnilevelTree);
 
 
 

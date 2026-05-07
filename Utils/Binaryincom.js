@@ -90,7 +90,6 @@ export const distributeBinaryIncome = async (userId) => {
           status: "paid"
         });
         
-        parent.wallet = (parent.wallet || 0) + income;
         parent.totalEarned = (parent.totalEarned || 0) + income;
       }
 

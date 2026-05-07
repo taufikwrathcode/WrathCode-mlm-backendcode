@@ -25,7 +25,6 @@ export const giveReferralBonus = async (sponsorId, userId, investmentAmount, pla
       status: "paid"
     });
 
-    sponsor.wallet = (sponsor.wallet || 0) + sponsorBonus;
     sponsor.totalEarned = (sponsor.totalEarned || 0) + sponsorBonus;
     sponsor.totalReferralEarnings = (sponsor.totalReferralEarnings || 0) + sponsorBonus;
     await sponsor.save();

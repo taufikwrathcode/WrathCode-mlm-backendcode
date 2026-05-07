@@ -3,6 +3,7 @@ import { getDateRange } from "../Utils/DateFilter.js";
 import { exportToExcel } from "../Utils/Excel.js";
 import { getFYRange, getQuarterRange } from "../Utils/Financial.js";
 import { User } from "../models/User.js";
+import { Withdrawal } from "../models/Withdrawal.js";
 
 
 //================== Income Report =================
@@ -14,13 +15,12 @@ export const getIncomeReport = async (req, res) => {
         const userId = req.user._id;
         const { range, export: isExport } = req.query;
 
-        let query = { userId, type: "credit" };
+        let query = { user: userId, type: "credit" };
         const dateFilter = getDateRange(range);
         if (dateFilter) query.createdAt = dateFilter;
 
         
         const incomes = await Transaction.find(query)
-            .populate("fromMember", "name")
             .sort({ createdAt: -1 })
             .lean();
 
@@ -44,10 +44,10 @@ export const getIncomeReport = async (req, res) => {
 
         const formattedData = incomes.map(inc => ({
             date: new Date(inc.createdAt).toLocaleDateString('en-US'), // MM/DD/YYYY
-            type: inc.incomeType || "General Income", 
+            type: inc.source || inc.description || "General Income", 
             amount: inc.amount,
-            memberSource: inc.fromMember ? inc.fromMember.name : (inc.description || "System"),
-            status: inc.status.charAt(0).toUpperCase() + inc.status.slice(1) // Capitalize (Paid)
+            memberSource: inc.description || "System",
+            status: inc.status ? inc.status.charAt(0).toUpperCase() + inc.status.slice(1) : "Paid"
         }));
 
         // 3. EXCEL EXPORT LOGIC
@@ -65,8 +65,10 @@ export const getIncomeReport = async (req, res) => {
         // 4. JSON RESPONSE
         res.status(200).json({
           success: true,
-          summary,
-          history: formattedData
+          data: {
+            summary,
+            history: formattedData
+          }
         });
 
     } catch (error) {
@@ -89,9 +91,9 @@ export const getJoiningReport = async (req, res) => {
         const fetchTeam = async (parentIds, currentLevel, allMembers = []) => {
             if (currentLevel > 10) return allMembers; // Level limit (optional)
 
-            const members = await User.find({ sponsor: { $in: parentIds } })
-                .populate("sponsor", "name")
-                .select("name email createdAt isActive sponsor")
+            const members = await User.find({ parentUnilevel: { $in: parentIds } })
+                .populate("parentUnilevel", "name")
+                .select("name email createdAt isActive parentUnilevel")
                 .lean();
 
             if (members.length === 0) return allMembers;
@@ -99,7 +101,7 @@ export const getJoiningReport = async (req, res) => {
             const membersWithLevel = members.map(m => ({
                 ...m,
                 level: currentLevel,
-                sponsorName: m.sponsor ? m.sponsor.name : "You"
+                sponsorName: m.parentUnilevel ? m.parentUnilevel.name : "You"
             }));
 
             allMembers.push(...membersWithLevel);
@@ -150,8 +152,10 @@ export const getJoiningReport = async (req, res) => {
         // 6. JSON RESPONSE
         res.status(200).json({
             success: true,
-            summary: stats,
-            history: formattedList
+            data: {
+                summary: stats,
+                history: formattedList
+            }
         });
 
     } catch (error) {
@@ -170,7 +174,7 @@ export const getFundTransferReport = async (req, res) => {
         const { range, export: isExport } = req.query;
 
         // 1. FILTER LOGIC (Sirf Transfer type transactions)
-        let query = { userId, category: "transfer" }; 
+        let query = { user: userId, type: "transfer" }; 
         const dateFilter = getDateRange(range);
         if (dateFilter) query.createdAt = dateFilter;
 
@@ -210,8 +214,10 @@ export const getFundTransferReport = async (req, res) => {
         // 5. JSON RESPONSE
         res.status(200).json({
             success: true,
-            summary,
-            history: formattedList
+            data: {
+                summary,
+                history: formattedList
+            }
         });
 
     } catch (error) {
@@ -232,11 +238,11 @@ export const getWithdrawalReport = async (req, res) => {
         const { range, export: isExport } = req.query;
 
         // 1. FILTER: Sirf withdrawal category
-        let query = { userId, category: "withdrawal" }; 
+        let query = { user: userId }; 
         const dateFilter = getDateRange(range);
         if (dateFilter) query.createdAt = dateFilter;
 
-        const withdrawals = await Transaction.find(query)
+        const withdrawals = await Withdrawal.find(query)
             .sort({ createdAt: -1 })
             .lean();
 
@@ -287,8 +293,10 @@ export const getWithdrawalReport = async (req, res) => {
         // 5. JSON RESPONSE
         res.status(200).json({
             success: true,
-            summary,
-            history: formattedList
+            data: {
+                summary,
+                history: formattedList
+            }
         });
 
     } catch (error) {
@@ -334,8 +342,8 @@ export const getTaxReport = async (req, res) => {
 
         //  DATABASE QUERY
         const records = await Transaction.find({
-            userId,
-            category: "income",
+            user: userId,
+            type: "credit",
             createdAt: dateFilter
         }).sort({ createdAt: 1 }).lean();
 
@@ -393,14 +401,16 @@ export const getTaxReport = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            summary: {
-                grossIncome: summary.grossIncome.toFixed(2),
-                totalDeductions: summary.totalDeductions.toFixed(2),
-                taxableAmount: summary.taxableAmount.toFixed(2),
-                taxTDSDeducted: summary.taxTDSDeducted.toFixed(2),
-                netReceived: summary.netReceived.toFixed(2)
-            },
-            history: formattedList
+            data: {
+                summary: {
+                    grossIncome: summary.grossIncome.toFixed(2),
+                    totalDeductions: summary.totalDeductions.toFixed(2),
+                    taxableAmount: summary.taxableAmount.toFixed(2),
+                    taxTDSDeducted: summary.taxTDSDeducted.toFixed(2),
+                    netReceived: summary.netReceived.toFixed(2)
+                },
+                history: formattedList
+            }
         });
 
     } catch (error) {

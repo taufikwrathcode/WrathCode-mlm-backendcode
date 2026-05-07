@@ -27,7 +27,7 @@ export const getUserDashboard = async (req, res) => {
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]);
 
-    // ✅ Merge commission earnings + referral earnings
+    // Merge commission earnings + referral earnings
     const commissionEarnings = totalEarningsFromCommissions[0]?.total || 0;
     const referralEarnings = user.totalReferralEarnings || 0;
     const totalEarnings = commissionEarnings + referralEarnings;
@@ -48,10 +48,10 @@ export const getUserDashboard = async (req, res) => {
       totalReferrals,
       activeReferrals,
       pendingReferrals,
-      totalEarnings: totalEarnings,  // ✅ Commission + Referral earnings
+      totalEarnings: totalEarnings,
       availableBalance: user.wallet || 0,
       monthlyEarning: monthlyEarning[0]?.total || 0
-      // ❌ totalReferralEarnings REMOVED
+
     };
 
     // ================== 2. RECENT COMMISSIONS ==================
@@ -81,12 +81,13 @@ export const getUserDashboard = async (req, res) => {
     const topPerformers = await User.find({ parentUnilevel: user._id })
       .sort({ totalEarned: -1 })
       .limit(5)
-      .select("name rank totalEarned");
+      .select("name rank totalEarned totalReferralEarnings investment");
 
     const formattedTop = topPerformers.map((u) => ({
       name: u.name,
       rank: u.rank,
-      amount: u.totalEarned,
+      amount: (u.totalEarned || 0) + (u.totalReferralEarnings || 0),
+      investment: u.investment || 0
     }));
 
     // ================== FINAL RESPONSE ==================
@@ -154,7 +155,7 @@ export const getUserReferralDashboard = async (req, res) => {
           totalReferrals,
           activeReferrals,
           pendingReferrals,
-           totalEarnings,
+          totalEarnings,
         },
         referralList,
       },
@@ -175,15 +176,22 @@ export const getCommissionDashboard = async (req, res) => {
   try {
     const userId = req.user._id;
 
+
     const user = await User.findById(userId);
     console.log(user)
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
+    const baseQuery = {
+      user: userId,
+      type: "credit",
+      description: { $not: /Deposit|Transfer/i }
+    };
+
     // ================= SUMMARY (OPTIMIZED) =================
-    const summaryData = await Commission.aggregate([
-      { $match: { user: userId } },
+    const summaryData = await Transaction.aggregate([
+      { $match: baseQuery },
       {
         $group: {
           _id: null,
@@ -204,10 +212,10 @@ export const getCommissionDashboard = async (req, res) => {
     console.log(summaryData)
 
     // ================= THIS MONTH =================
-    const thisMonthData = await Commission.aggregate([
+    const thisMonthData = await Transaction.aggregate([
       {
         $match: {
-          user: userId,
+          ...baseQuery,
           createdAt: {
             $gte: new Date(
               new Date().getFullYear(),
@@ -224,7 +232,7 @@ export const getCommissionDashboard = async (req, res) => {
         }
       }
     ]);
-     console.log(thisMonthData)
+    console.log(thisMonthData)
     const summary = {
       total: summaryData[0]?.total || 0,
       paid: summaryData[0]?.paid || 0,
@@ -233,8 +241,8 @@ export const getCommissionDashboard = async (req, res) => {
     };
     console.log(summary)
     // ================= MONTHLY TREND =================
-    const trend = await Commission.aggregate([
-      { $match: { user: userId } },
+    const trend = await Transaction.aggregate([
+      { $match: baseQuery },
       {
         $group: {
           _id: {
@@ -246,46 +254,24 @@ export const getCommissionDashboard = async (req, res) => {
       },
       { $sort: { "_id.year": 1, "_id.month": 1 } }
     ]);
-   
+
     const monthlyTrend = trend.map((t) => ({
       year: t._id.year,
       month: t._id.month,
       total: t.total
     }));
-     console.log(monthlyTrend)
+    console.log(monthlyTrend)
     // ================= HISTORY =================
-    const commissions = await Commission.find({ user: userId })
-      .populate("fromUser", "name")
+    const commissions = await Transaction.find(baseQuery)
       .sort({ createdAt: -1 });
 
     const history = commissions.map((c) => {
-      const planName = c.plan || "Unknown";
-
-      let typeName = "";
-
-      if (c.type === "direct") {
-        typeName = `${planName} Direct Referral`;
-      } 
-      else if (c.type === "level") {
-        typeName = `${planName} Level ${c.level} Commission`;
-      } 
-      else if (c.type === "binary") {
-        typeName = `${planName} Binary Income`;
-      } 
-      else if (c.type === "roi") {
-        typeName = `${planName} ROI Income`;
-      } 
-      else if (c.type === "bonus") {
-        typeName = `${planName} Bonus Income`;
-      }
-      console.log(commissions)
-
       return {
-        type: typeName,
-        memberName: c.fromUser?.name || "System",
+        type: c.description || "General Commission",
+        memberName: "System",
         amount: c.amount,
         date: c.createdAt,
-        status: c.status
+        status: c.status ? c.status.charAt(0).toUpperCase() + c.status.slice(1) : "Paid"
       };
     });
 
@@ -310,7 +296,7 @@ export const getCommissionDashboard = async (req, res) => {
 
 
 
-// ================= GET WALLET DASHBOARD (FIXED) =================
+// ================= GET WALLET DASHBOARD =================
 export const getWalletDashboard = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -433,13 +419,23 @@ export const transferWalletToWallet = async (req, res) => {
       target.balance = (target.balance || 0) + amount;
       await wallet.save();
 
-      // Transaction record
+      // Transaction record - Debit from source
       await Transaction.create({
         user: userId,
-        type: "transfer",
-        walletType: "internal",
+        type: "debit",
+        walletType: fromWallet,
         amount,
-        description: `Transfer from ${fromWallet} to ${toWallet}`,
+        description: `Transferred to ${toWallet} wallet`,
+        status: "paid"
+      });
+
+      // Transaction record - Credit to destination
+      await Transaction.create({
+        user: userId,
+        type: "credit",
+        walletType: toWallet,
+        amount,
+        description: `Received from ${fromWallet} wallet`,
         status: "paid"
       });
 
@@ -479,13 +475,23 @@ export const transferWalletToWallet = async (req, res) => {
       to.balance = (to.balance || 0) + amount;
       await wallet.save();
 
-      // Transaction record
+      // Transaction record - Debit from source
       await Transaction.create({
         user: userId,
-        type: "transfer",
-        walletType: "internal",
+        type: "debit",
+        walletType: fromWallet,
         amount,
-        description: `Transfer from ${fromWallet} to ${toWallet}`,
+        description: `Transferred to ${toWallet} wallet`,
+        status: "paid"
+      });
+
+      // Transaction record - Credit to destination
+      await Transaction.create({
+        user: userId,
+        type: "credit",
+        walletType: toWallet,
+        amount,
+        description: `Received from ${fromWallet} wallet`,
         status: "paid"
       });
 
@@ -626,7 +632,7 @@ export const getNetworkDashboard = async (req, res) => {
       createdAt: { $gte: last7Days }
     });
 
- 
+
     return res.status(200).json({
       success: true,
       data: {
@@ -638,10 +644,10 @@ export const getNetworkDashboard = async (req, res) => {
           newMembers
         },
 
-      
+
         search,
 
-        
+
         members
       }
     });
@@ -688,7 +694,7 @@ export const getInvestmentDashboard = async (req, res) => {
     });
 
     const monthlyTrend = {};
-    
+
     for (let i = 0; i < 6; i++) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
@@ -703,18 +709,18 @@ export const getInvestmentDashboard = async (req, res) => {
       }
     });
 
-     
+
     const plansHistory = user.plans.map((plan) => {
       const isExpired = user.roiEndDate && today > new Date(user.roiEndDate);
-      
-  
+
+
       const roiPercent = user.dailyROI ? ((user.dailyROI / plan.amount) * 100).toFixed(2) : "0";
 
       return {
         planName: plan.name,
-        rank: user.rank || "Bronze", 
+        rank: user.rank || "Bronze",
         amount: plan.amount,
-        returnReceived: user.roiGiven, 
+        returnReceived: user.roiGiven,
         roiPercentage: `${roiPercent}%`,
         startDate: plan.purchaseDate,
         endDate: user.roiEndDate,

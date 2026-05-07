@@ -20,6 +20,8 @@ import { Wallet } from "../models/wallet.js";
 
 
 
+
+
 // ================= ADMIN DASHBOARD STATS ====================
 export const getAdminDashboard = async (req, res) => {
   try {
@@ -1884,6 +1886,7 @@ export const getInvestmentByUserId = async (req, res) => {
 };
 
 // ================= GET ALL DEPOSITS =================
+
 export const getAllDeposits = async (req, res) => {
   try {
     const { search, status, page = 1, limit = 20 } = req.query;
@@ -1905,7 +1908,7 @@ export const getAllDeposits = async (req, res) => {
       deposits = deposits.filter(deposit => {
         const userName = deposit.user?.name?.toLowerCase() || "";
         const amount = deposit.amount.toString();
-        const transactionId = deposit.razorpayPaymentId?.toLowerCase() || "";
+        const transactionId = deposit.transactionId?.toLowerCase() || "";
         const searchLower = search.toLowerCase();
         
         return userName.includes(searchLower) || 
@@ -1925,10 +1928,11 @@ export const getAllDeposits = async (req, res) => {
         limit: parseInt(limit)
       },
       deposits: deposits.map(deposit => ({
+        userId: deposit.user?._id,
         userName: deposit.user?.name,
         amount: deposit.amount,
         paymentMethod: deposit.method,
-        transactionId: deposit.razorpayPaymentId,
+        transactionId: deposit.transactionId,
         date: deposit.createdAt,
         status: deposit.status
       }))
@@ -1939,7 +1943,9 @@ export const getAllDeposits = async (req, res) => {
   }
 };
 
-// ================= GET DEPOSIT BY USER ID =================
+
+// =================  GET DEPOSIT BY USER ID =================
+
 export const getDepositByUserId = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -1957,7 +1963,7 @@ export const getDepositByUserId = async (req, res) => {
         userName: user.name,
         amount: deposit.amount,
         paymentMethod: deposit.method,
-        transactionId: deposit.razorpayPaymentId,
+        transactionId: deposit.transactionId,
         date: deposit.createdAt,
         status: deposit.status
       }))
@@ -1967,7 +1973,6 @@ export const getDepositByUserId = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // ================= GET ALL COMMISSIONS =================
 export const getAllCommissions = async (req, res) => {
   try {
@@ -2227,3 +2232,103 @@ export const getAllWallets = async (req, res) => {
 };
 
 
+
+
+// ================= GET WITHDRAWAL  =================
+export const getWithdrawal = async (req, res) => {
+  try {
+    const { search, page = 1, limit = 20 } = req.query;
+    
+    // Get all withdrawals
+    let filter = {};
+    let withdrawals = await Withdrawal.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("user", "name email");
+    
+    // Search filter
+    if (search) {
+      withdrawals = withdrawals.filter(w => 
+        w.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
+        w.user?.email?.toLowerCase().includes(search.toLowerCase()) ||
+        w.amount.toString().includes(search) ||
+        w.transactionId?.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+    
+    // ================= 1. WITHDRAWAL REPORT =================
+    const totalPending = withdrawals.filter(w => w.status === "pending").length;
+    const totalApproved = withdrawals.filter(w => w.status === "approved").length;
+    const totalRejected = withdrawals.filter(w => w.status === "rejected").length;
+    const totalRequest = withdrawals.length;
+    
+    // Total amounts
+    const totalPendingAmount = withdrawals
+      .filter(w => w.status === "pending")
+      .reduce((sum, w) => sum + w.amount, 0);
+    const totalApprovedAmount = withdrawals
+      .filter(w => w.status === "approved")
+      .reduce((sum, w) => sum + w.amount, 0);
+    const totalRejectedAmount = withdrawals
+      .filter(w => w.status === "rejected")
+      .reduce((sum, w) => sum + w.amount, 0);
+    
+    // ================= 2. WITHDRAWAL TRENDING =================
+    const trending = {
+      approved: totalApproved,
+      pending: totalPending,
+      rejected: totalRejected
+    };
+    
+    // ================= 3. STATUS DURATION (PERCENTAGE) =================
+    const total = totalRequest || 1;
+    const statusPercentage = {
+      pending: ((totalPending / total) * 100).toFixed(1),
+      approved: ((totalApproved / total) * 100).toFixed(1),
+      rejected: ((totalRejected / total) * 100).toFixed(1)
+    };
+    
+    // ================= 4. HISTORY (PAGINATED) =================
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const paginatedWithdrawals = withdrawals.slice(skip, skip + parseInt(limit));
+    
+    const history = paginatedWithdrawals.map(w => ({
+      id: w._id,
+      userName: w.user?.name || "Unknown",
+      userEmail: w.user?.email || "Unknown",
+      amount: w.amount,
+      method: w.method,
+      transactionId: w.transactionId, 
+      date: w.createdAt,
+      status: w.status,
+      taxAmount: w.taxAmount,
+      finalAmount: w.finalAmount
+    }));
+    
+    res.status(200).json({
+      success: true,
+      // 1. Withdrawal Report
+      report: {
+        totalPending: { count: totalPending, amount: totalPendingAmount },
+        totalApproved: { count: totalApproved, amount: totalApprovedAmount },
+        totalRejected: { count: totalRejected, amount: totalRejectedAmount },
+        totalRequest: { count: totalRequest, amount: totalPendingAmount + totalApprovedAmount + totalRejectedAmount }
+      },
+      // 2. Withdrawal Trending
+      trending: trending,
+      // 3. Status Duration (Percentage)
+      statusPercentage: statusPercentage,
+      // 4. History
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalRequest / parseInt(limit)),
+        totalWithdrawals: totalRequest,
+        limit: parseInt(limit)
+      },
+      history: history
+    });
+    
+  } catch (error) {
+    console.error("Get Withdrawal Management Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

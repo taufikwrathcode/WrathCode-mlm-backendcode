@@ -27,6 +27,10 @@ const DepositSchema = new mongoose.Schema({
     enum: ["pending", "approved", "rejected"],
     default: "pending"
   },
+   transactionId: {
+    type: String,
+    default: null
+  },
   approvedBy: {
   type: mongoose.Schema.Types.ObjectId,
   ref: "Admin"

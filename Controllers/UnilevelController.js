@@ -2,8 +2,8 @@
 import { User } from "../models/User.js";
 import { Admin } from "../models/Admin.js";
 import { startROI } from "../Utils/ROI.js";
-import {distributeLevelIncome} from "../Utils/Level.js";
-import {checkRank } from "../Utils/RANK.js";
+import { distributeLevelIncome } from "../Utils/Level.js";
+import { checkRank } from "../Utils/RANK.js";
 import { distributeUnilevelIncome } from "../Utils/unilevelincom.js";
 
 
@@ -46,58 +46,141 @@ export const joinUnilevel = async (req, res) => {
 // ============================== GET UNILEVEL TREE =============================
 
 
+const getUserLevel = async (rootId, targetId) => {
+  const queue = [{ id: rootId, level: 1 }];
+  const visited = new Set();
+
+  while (queue.length) {
+    const { id, level } = queue.shift();
+
+    if (!id || visited.has(id.toString())) continue;
+    visited.add(id.toString());
+
+    if (id.toString() === targetId.toString()) {
+      return level;
+    }
+
+    const user = await User.findById(id);
+    if (!user) continue;
+
+    const children = [
+      user.left,
+      user.right,
+      user.leftMatrix,
+      user.middleMatrix,
+      user.rightMatrix,
+      ...(user.childrenUni || [])
+    ];
+
+    for (let c of children) {
+      if (c) queue.push({ id: c, level: level + 1 });
+    }
+  }
+
+  return 0;
+};
+
+
 export const getUnilevelTree = async (req, res) => {
   try {
     const userId = req.user._id;
+    const search = req.query.search || "";
 
-    const getLevelData = async (memberId, currentLevel) => {
-      if (currentLevel > 10) return null;
+    const rootUser = await User.findById(userId);
+    if (!rootUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-      const member = await User.findById(memberId)
-        .select("name isActive createdAt childrenUni plans")
-        .populate("childrenUni", "name isActive createdAt")
-        .lean();
+    /* =========================
+       GET ALL MEMBERS (3 TREES)
+    ========================= */
+    const rawMembers = await User.find({
+      $or: [
+        { parent: userId },
+        { parentMatrix: userId },
+        { parentUnilevel: userId }
+      ]
+    });
 
-      if (!member) return null;
+    /* =========================
+       SEARCH FILTER
+    ========================= */
+    let filtered = rawMembers;
 
-      // Calculate user's total investment
-      const userInvestment = member.plans?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+    if (search) {
+      filtered = rawMembers.filter((m) =>
+        m.name?.toLowerCase().includes(search.toLowerCase()) ||
+        m.email?.toLowerCase().includes(search.toLowerCase()) ||
+        m._id.toString().includes(search)
+      );
+    }
 
-      const children = [];
-      let totalInvestment = userInvestment;
+    /* =========================
+       FORMAT MEMBERS LIST
+    ========================= */
+    const members = await Promise.all(
+      filtered.map(async (m) => ({
+        id: m._id,
+        name: m.name,
 
-      for (const child of (member.childrenUni || [])) {
-        const childData = await getLevelData(child._id, currentLevel + 1);
-        if (childData) {
-          children.push(childData);
-          totalInvestment += childData.stats.totalAmount;
-        }
-      }
+        // REAL LEVEL (1,2,3...)
+        level: await getUserLevel(userId, m._id),
 
-      return {
-        _id: member._id,
-        name: member.name,
-        level: currentLevel,
-        createdAt: member.createdAt,
-        stats: {
-          directCount: member.childrenUni?.length || 0,
-          totalMembers: children.length + 1,
-          totalAmount: totalInvestment
-        },
-        children: children
-      };
-    };
+        referrals: m.childrenUni?.length || 0,
+        totalEarning: m.totalEarned,
+        joinDate: m.createdAt
+      }))
+    );
 
-    const tree = await getLevelData(userId, 0);
+    /* =========================
+       LEVEL WISE COUNT
+    ========================= */
+    const levelMap = {};
 
-    res.status(200).json({
+    members.forEach((m) => {
+      levelMap[m.level] = (levelMap[m.level] || 0) + 1;
+    });
+
+    const levelSummary = Object.keys(levelMap).map((lvl) => ({
+      level: Number(lvl),
+      members: levelMap[lvl]
+    }));
+
+    const totalMembers = members.length;
+
+    /* =========================
+       NETWORK GROWTH
+    ========================= */
+    const last7Days = new Date();
+    last7Days.setDate(last7Days.getDate() - 7);
+
+    const newMembers = await User.countDocuments({
+      createdAt: { $gte: last7Days }
+    });
+
+
+    return res.status(200).json({
       success: true,
-      type: "Unilevel",
-      data: tree
+      data: {
+        totalMembers,
+        levelSummary,
+
+        networkGrowth: {
+          totalMembers,
+          newMembers
+        },
+
+
+        search,
+
+
+        members
+      }
     });
 
   } catch (error) {
-    console.error("Get Unilevel Tree Error:", error);
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({
+      message: error.message
+    });
   }
 };

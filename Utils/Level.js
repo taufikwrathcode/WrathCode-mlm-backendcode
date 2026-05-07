@@ -32,6 +32,8 @@ export const distributeLevelIncome = async (user, amount, planName = "General") 
         description: `Level ${level + 1} Commission from ${planName} (${percent}%)`,
         status: "paid"
       });
+      parent.totalEarned = (parent.totalEarned || 0) + income;
+      await parent.save();
     }
 
     current = parent;
