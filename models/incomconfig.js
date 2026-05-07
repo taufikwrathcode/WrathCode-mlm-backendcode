@@ -16,7 +16,7 @@ const IncomeConfigSchema = new mongoose.Schema({
   levelCommission: {
     ...commonSettings,
     levels: [{
-      level: { type: Number, required: true },     // ✅ YAHAN PE { type: Number }
+      level: { type: Number, required: true },     
       percentage: { type: Number, required: true }
     }]
   },
@@ -29,7 +29,7 @@ const IncomeConfigSchema = new mongoose.Schema({
   matchingBonus: {
     ...commonSettings,
     percentage: { type: Number, default: 5 },
-    levels: { type: Number, default: 3 }           // ✅ YEH SAHI HAI
+    levels: { type: Number, default: 3 }           
   },
 
   leadershipBonus: {

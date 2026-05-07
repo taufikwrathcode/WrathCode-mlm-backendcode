@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 
-// Email Configuration
+
 const transporter = nodemailer.createTransport({
   service: process.env.EMAIL_SERVICE || "gmail",
   auth: {
@@ -43,12 +43,12 @@ export const sendRegistrationEmail = async (user) => {
               <p>Welcome to MLM Network! We're thrilled to have you on board.</p>
               
               <div class="referral-box">
-                <h3>🔑 Your Unique Referral Code:</h3>
+                <h3>Your Unique Referral Code:</h3>
                 <p class="referral-code">${user.referral}</p>
                 <p style="color: #666;">Share this code with your friends and family to earn commissions!</p>
               </div>
               
-              <h3>✅ Quick Start Guide:</h3>
+              <h3>Quick Start Guide:</h3>
               <ol>
                 <li>Complete your <strong>KYC Verification</strong></li>
                 <li>Choose a <strong>Plan</strong> (Binary, Unilevel, or Matrix)</li>
@@ -60,7 +60,7 @@ export const sendRegistrationEmail = async (user) => {
                 <a href="${process.env.APP_URL || "https://yourapp.com"}/dashboard" class="button">Go to Dashboard</a>
               </p>
               
-              <h3>📞 Need Help?</h3>
+              <h3>Need Help?</h3>
               <p>Contact our support team at <strong>support@mlmnetwork.com</strong></p>
               
               <p>Best regards,<br><strong>MLM Network Team</strong></p>
@@ -76,9 +76,9 @@ export const sendRegistrationEmail = async (user) => {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Registration email sent to ${user.email}`);
+    console.log(`Registration email sent to ${user.email}`);
   } catch (error) {
-    console.error("❌ Registration email error:", error);
+    console.error(" Registration email error:", error);
   }
 };
 

@@ -9,7 +9,7 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_SECRET
 });
 
-// ================= USER: CREATE DEPOSIT (WITH TRANSACTION ID) =================
+
 export const createDeposit = async (req, res) => {
   try {
     const { amount, method, upiId, bankDetails } = req.body;
@@ -32,7 +32,7 @@ export const createDeposit = async (req, res) => {
     
     const transactionId = `DEP${Date.now()}${userId.toString().slice(-6)}`;
 
-    // METHOD 1: UPI
+    
     if (method === "upi") {
       if (!upiId || !upiId.includes("@")) {
         return res.status(400).json({ 
@@ -67,7 +67,7 @@ export const createDeposit = async (req, res) => {
       });
     }
 
-    // METHOD 2: BANK TRANSFER
+  
     if (method === "bank") {
       if (!bankDetails || !bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.ifsc || !bankDetails.accountHolder) {
         return res.status(400).json({ 
@@ -112,7 +112,7 @@ export const createDeposit = async (req, res) => {
       });
     }
 
-    // METHOD 3: RAZORPAY
+  
     if (method === "razorpay") {
       const options = {
         amount: Number(amount) * 100,
@@ -208,7 +208,7 @@ export const verifyDeposit = async (req, res) => {
   }
 };
 
-// ================= USER: GET DEPOSIT HISTORY =================
+// =================  GET DEPOSIT HISTORY =================
 export const getDepositHistory = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -233,7 +233,7 @@ export const getDepositHistory = async (req, res) => {
   }
 };
 
-// ================= USER: VERIFY UPI PAYMENT =================
+// ================= VERIFY UPI PAYMENT =================
 export const verifyUPIPayment = async (req, res) => {
   try {
     const { paymentId, transactionId, status } = req.body;

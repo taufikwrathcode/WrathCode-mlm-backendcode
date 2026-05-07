@@ -6,10 +6,10 @@ export const getFYRange = (fyString) => {
     const startYear = parseInt(fyString.split('-')[0]);
     
     
-    const startDate = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0)); // Month 3 = April
+    const startDate = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0)); 
     
-    //  31st March of Next Year
-    const endDate = new Date(Date.UTC(startYear + 1, 2, 31, 23, 59, 59)); // Month 2 = March
+    
+    const endDate = new Date(Date.UTC(startYear + 1, 2, 31, 23, 59, 59)); 
 
     return {
         $gte: startDate,

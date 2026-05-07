@@ -4,7 +4,7 @@ import { checkRank } from "./RANK.js";
 import { addTransaction } from "./wallet.js";
 
 export const distributeBinaryIncome = async (userId) => {
-  // Read config from database
+  
   let config = await BinaryConfig.findOne();
   if (!config) {
     config = {
@@ -18,7 +18,7 @@ export const distributeBinaryIncome = async (userId) => {
     };
   }
 
-  // Parse ratio (e.g., "2:1" -> leftRatio=2, rightRatio=1)
+  
   const [leftRatio, rightRatio] = config.leftRightRatio.split(":").map(Number);
   
   let current = await User.findById(userId);
@@ -29,18 +29,18 @@ export const distributeBinaryIncome = async (userId) => {
     const parent = await User.findById(current.parent);
     if (!parent) break;
 
-    // Update business count
+    
     if (current.position === "left") {
       parent.leftBusiness = (parent.leftBusiness || 0) + 1;
     } else {
       parent.rightBusiness = (parent.rightBusiness || 0) + 1;
     }
 
-    // Calculate total with carry
+    
     let leftTotal = (parent.leftBusiness || 0) + (parent.leftCarry || 0);
     let rightTotal = (parent.rightBusiness || 0) + (parent.rightCarry || 0);
     
-    // Calculate pairs based on ratio
+    
     let leftPairs = Math.floor(leftTotal / leftRatio);
     let rightPairs = Math.floor(rightTotal / rightRatio);
     let pairs = Math.min(leftPairs, rightPairs);
@@ -48,14 +48,14 @@ export const distributeBinaryIncome = async (userId) => {
     if (pairs > 0) {
       let income = pairs * config.pairValue;
 
-      // ROI Cap Check
+    
       if (parent.maxEarning > 0 && parent.totalEarned >= parent.maxEarning) {
         income = 0;
       } else if (parent.maxEarning > 0 && parent.totalEarned + income > parent.maxEarning) {
         income = parent.maxEarning - parent.totalEarned;
       }
 
-      // Daily Capping Check
+      
       if (config.dailyCapping && income > 0) {
         const today = new Date().toDateString();
         if (parent.lastDailyDate?.toDateString() !== today) {
@@ -67,7 +67,7 @@ export const distributeBinaryIncome = async (userId) => {
         if (income > 0) parent.dailyIncome = (parent.dailyIncome || 0) + income;
       }
 
-      // Weekly Capping Check
+      
       if (config.weeklyCapping && income > 0) {
         const today = new Date();
         const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
@@ -93,7 +93,7 @@ export const distributeBinaryIncome = async (userId) => {
         parent.totalEarned = (parent.totalEarned || 0) + income;
       }
 
-      // Carry forward logic
+      
       if (config.carryForward) {
         parent.leftCarry = leftTotal - (pairs * leftRatio);
         parent.rightCarry = rightTotal - (pairs * rightRatio);

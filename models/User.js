@@ -104,7 +104,7 @@ const UserSchema = new mongoose.Schema({
     default: 0
   },
   
-  // ================= CAPITAL LOCK (ROI) =================
+  // ================= CAPITAL LOCK  =================
   capitalLocked: { 
     type: Boolean, 
     default: false 

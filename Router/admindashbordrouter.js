@@ -39,9 +39,9 @@ router.get("/allUsers", adminProtect, getAllUsers);
 router.get("/user/overall/:Id", adminProtect, getUserOverallDetails);
 
 //===========================KYC MANAGEMENT===================
-// Get all KYC submissions
+
 router.get("/kyc", adminProtect, getAllKYC);
-// Get single KYC details
+
 router.get("/kyc/:kycid", adminProtect, getKYCDetails);
 
 //========================Check user login=======================

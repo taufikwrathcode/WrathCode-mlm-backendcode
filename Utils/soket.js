@@ -26,7 +26,7 @@ export const initSocket = (server) => {
   return io;
 };
 
-//  kahi bhi use karne ke liye
+
 export const getIO = () => {
   if (!io) {
     throw new Error("Socket.io not initialized!");

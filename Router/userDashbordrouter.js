@@ -11,7 +11,7 @@ const router = Router();
 
 router.get("/dashboard" ,Userprotect,getUserDashboard)
 
-//Queck Action
+//referral 
 router.get("/referral" ,Userprotect, getUserReferralDashboard)
 
 //commission

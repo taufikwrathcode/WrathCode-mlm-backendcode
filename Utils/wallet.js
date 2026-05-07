@@ -4,7 +4,7 @@ import { User } from "../models/User.js";
 
 export const addTransaction = async ({
   userId,
-  type,        // credit | debit
+  type,        
   walletType,  
   amount,
   description,
@@ -15,7 +15,7 @@ export const addTransaction = async ({
       throw new Error("userId and amount are required");
     }
 
-    // ================= MAIN WALLET (User model) =================
+    // ================= MAIN WALLET  =================
     if (walletType === "main") {
       const user = await User.findById(userId);
       if (!user) throw new Error("User not found");
@@ -29,7 +29,7 @@ export const addTransaction = async ({
       await user.save();
     }
 
-    // ================= INCOME/ROI/FUND WALLETS (Wallet model) =================
+    // ================= INCOME/ROI/FUND WALLETS  =================
     else if (["income", "roi", "fund"].includes(walletType)) {
       let wallet = await Wallet.findOne({ user: userId });
       if (!wallet) {

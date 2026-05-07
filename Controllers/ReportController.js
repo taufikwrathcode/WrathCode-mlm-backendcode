@@ -43,14 +43,14 @@ export const getIncomeReport = async (req, res) => {
 
 
         const formattedData = incomes.map(inc => ({
-            date: new Date(inc.createdAt).toLocaleDateString('en-US'), // MM/DD/YYYY
+            date: new Date(inc.createdAt).toLocaleDateString('en-US'), 
             type: inc.source || inc.description || "General Income", 
             amount: inc.amount,
             memberSource: inc.description || "System",
             status: inc.status ? inc.status.charAt(0).toUpperCase() + inc.status.slice(1) : "Paid"
         }));
 
-        // 3. EXCEL EXPORT LOGIC
+        
         if (isExport === "true") {
             const columns = [
                 { header: 'Date', key: 'date', width: 15 },
@@ -62,7 +62,7 @@ export const getIncomeReport = async (req, res) => {
             return exportToExcel(res, `Income_Report_${range || 'all'}`, columns, formattedData);
         }
 
-        // 4. JSON RESPONSE
+    
         res.status(200).json({
           success: true,
           data: {
@@ -87,9 +87,9 @@ export const getJoiningReport = async (req, res) => {
         const userId = req.user._id;
         const { range, export: isExport } = req.query;
 
-        // 1. POORI TEAM NIKALNE KA LOGIC (Recursive)
+    
         const fetchTeam = async (parentIds, currentLevel, allMembers = []) => {
-            if (currentLevel > 10) return allMembers; // Level limit (optional)
+            if (currentLevel > 10) return allMembers;
 
             const members = await User.find({ parentUnilevel: { $in: parentIds } })
                 .populate("parentUnilevel", "name")
@@ -111,14 +111,14 @@ export const getJoiningReport = async (req, res) => {
 
         let fullTeam = await fetchTeam([userId], 1);
 
-        // 2. DATE FILTER APPLY KAREIN (Filter in Memory)
+    
         const dateFilter = getDateRange(range);
         if (dateFilter && dateFilter.$gte) {
             const startTime = new Date(dateFilter.$gte).getTime();
             fullTeam = fullTeam.filter(m => new Date(m.createdAt).getTime() >= startTime);
         }
 
-        // 3. STATS CALCULATION (Top Cards)
+    
         const stats = {
             totalTeamMember: fullTeam.length,
             activeMember: fullTeam.filter(m => m.isActive).length,
@@ -126,7 +126,7 @@ export const getJoiningReport = async (req, res) => {
             directReferral: fullTeam.filter(m => m.level === 1).length
         };
 
-        // 4. DATA FORMATTING (Exact fields jo aapne maangi)
+        
         const formattedList = fullTeam.map(m => ({
             name: m.name,
             email: m.email,
@@ -136,7 +136,7 @@ export const getJoiningReport = async (req, res) => {
             status: m.isActive ? "Active" : "Inactive"
         }));
 
-        // 5. EXCEL EXPORT LOGIC
+        
         if (isExport === "true") {
             const columns = [
                 { header: 'Name', key: 'name', width: 25 },
@@ -149,7 +149,7 @@ export const getJoiningReport = async (req, res) => {
             return exportToExcel(res, `Joining_Report_${range || 'all'}`, columns, formattedList);
         }
 
-        // 6. JSON RESPONSE
+    
         res.status(200).json({
             success: true,
             data: {
@@ -173,7 +173,7 @@ export const getFundTransferReport = async (req, res) => {
         const userId = req.user._id;
         const { range, export: isExport } = req.query;
 
-        // 1. FILTER LOGIC (Sirf Transfer type transactions)
+        
         let query = { user: userId, type: "transfer" }; 
         const dateFilter = getDateRange(range);
         if (dateFilter) query.createdAt = dateFilter;
@@ -182,7 +182,7 @@ export const getFundTransferReport = async (req, res) => {
             .sort({ createdAt: -1 })
             .lean();
 
-        // 2. STATS CALCULATION (Top Cards)
+        
         const summary = {
             totalTransfers: transfers.length,
             totalAmount: transfers.reduce((sum, item) => sum + item.amount, 0),
@@ -190,7 +190,7 @@ export const getFundTransferReport = async (req, res) => {
             pending: transfers.filter(t => t.status === "pending").length
         };
 
-        // 3. DATA FORMATTING (Exact fields jaisa aapne demo diya)
+        
         const formattedList = transfers.map(t => ({
             date: new Date(t.createdAt).toLocaleDateString('en-US'),
             from: t.fromWallet || "Main Wallet",
@@ -199,7 +199,7 @@ export const getFundTransferReport = async (req, res) => {
             status: t.status.charAt(0).toUpperCase() + t.status.slice(1)
         }));
 
-        // 4. EXCEL EXPORT LOGIC
+    
         if (isExport === "true") {
             const columns = [
                 { header: 'Date', key: 'date', width: 15 },
@@ -211,7 +211,6 @@ export const getFundTransferReport = async (req, res) => {
             return exportToExcel(res, `Fund_Transfer_Report_${range || 'all'}`, columns, formattedList);
         }
 
-        // 5. JSON RESPONSE
         res.status(200).json({
             success: true,
             data: {
@@ -237,7 +236,7 @@ export const getWithdrawalReport = async (req, res) => {
         const userId = req.user._id;
         const { range, export: isExport } = req.query;
 
-        // 1. FILTER: Sirf withdrawal category
+        
         let query = { user: userId }; 
         const dateFilter = getDateRange(range);
         if (dateFilter) query.createdAt = dateFilter;
@@ -246,7 +245,7 @@ export const getWithdrawalReport = async (req, res) => {
             .sort({ createdAt: -1 })
             .lean();
 
-        // 2. STATS CALCULATION (Aapke Demo ke hisaab se)
+        
         const summary = {
             totalWithdrawals: withdrawals.length,
             totalAmount: 0,
@@ -265,18 +264,18 @@ export const getWithdrawalReport = async (req, res) => {
             }
         });
 
-        // 3. DATA FORMATTING (Exact fields as per demo)
+        
         const formattedList = withdrawals.map(t => ({
             date: new Date(t.createdAt).toLocaleDateString('en-US'),
             amount: t.amount,
-            method: t.withdrawalMethod || "Bank Transfer", // Bank, UPI, Crypto
+            method: t.withdrawalMethod || "Bank Transfer", 
             charges: t.charges || 0,
             netAmount: t.amount - (t.charges || 0),
             transactionId: t.transactionId || t._id.toString().slice(-8).toUpperCase(),
             status: t.status.charAt(0).toUpperCase() + t.status.slice(1)
         }));
 
-        // 4. EXCEL EXPORT LOGIC
+        
         if (isExport === "true") {
             const columns = [
                 { header: 'Date', key: 'date', width: 15 },
@@ -290,7 +289,7 @@ export const getWithdrawalReport = async (req, res) => {
             return exportToExcel(res, `Withdrawal_Report_${range || 'all'}`, columns, formattedList);
         }
 
-        // 5. JSON RESPONSE
+    
         res.status(200).json({
             success: true,
             data: {
@@ -318,36 +317,36 @@ export const getTaxReport = async (req, res) => {
 
         let dateFilter = {};
 
-        // 1. PRIORITY LOGIC FOR FILTERS
+        
         if (fy) {
-            // Case A: Financial Year or Quarter
+        
             if (quarter) {
                 dateFilter = getQuarterRange(quarter, fy);
             } else {
                 dateFilter = getFYRange(fy);
             }
         } else if (range) {
-            // Case B: Standard Filters (Today, Week, Month, etc.)
+            
             dateFilter = getDateRange(range);
         } else if (from && to) {
-            // Case C: Custom Date Picker
+            
             dateFilter = {
                 $gte: new Date(new Date(from).setHours(0, 0, 0, 0)),
                 $lte: new Date(new Date(to).setHours(23, 59, 59, 999))
             };
         } else {
-            //  Current Financial Year
+            
             dateFilter = getFYRange("2026-27");
         }
 
-        //  DATABASE QUERY
+    
         const records = await Transaction.find({
             user: userId,
             type: "credit",
             createdAt: dateFilter
         }).sort({ createdAt: 1 }).lean();
 
-        // 3. STATS CALCULATION
+    
         const summary = {
             grossIncome: 0,
             totalDeductions: 0,
@@ -383,7 +382,7 @@ export const getTaxReport = async (req, res) => {
             };
         });
 
-        // 4. EXCEL EXPORT
+        
         if (isExport === "true") {
             const columns = [
                 { header: 'Date', key: 'period', width: 15 },

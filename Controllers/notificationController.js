@@ -2,7 +2,7 @@ import { Notification } from "../models/notification.js";
 import { getIO } from "../Utils/soket.js"; 
 import { timeAgo } from "../Utils/timeago.js";
 
-//  
+ 
 export const createNotification = async (req, res) => {
   try {
     const { userId, title, message, type } = req.body;
@@ -22,7 +22,7 @@ export const createNotification = async (req, res) => {
 
     await notification.save();
 
-    //REAL-TIME SEND
+    
     const io = getIO();
     io.to(userId.toString()).emit("newNotification", notification);
 
@@ -48,7 +48,6 @@ export const getUserNotifications = async (req, res) => {
 
     let notifications = await Notification.find({ userId }).sort({ createdAt: -1 });
 
-    // Add timeAgo only when fetching
     notifications = notifications.map((n) => ({
       ...n._doc,
       timeAgo: timeAgo(n.createdAt),
@@ -65,7 +64,7 @@ export const getUserNotifications = async (req, res) => {
   }
 };
 
-// Optional: Mark notification as read
+
 export const markAsRead = async (req, res) => {
   try {
     const { notificationId } = req.params;

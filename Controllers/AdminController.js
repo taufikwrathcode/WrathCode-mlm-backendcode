@@ -118,7 +118,7 @@ export const addUserByAdmin = async (req, res) => {
       joinDate 
     } = req.body;
 
-    // Validation
+    
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -126,7 +126,7 @@ export const addUserByAdmin = async (req, res) => {
       });
     }
 
-    // Check if user already exists
+  
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
@@ -135,19 +135,19 @@ export const addUserByAdmin = async (req, res) => {
       });
     }
 
-    // Generate referral code
+    
     let referralCode = generateReferralCode();
     while (await User.findOne({ referral: referralCode })) {
       referralCode = generateReferralCode();
     }
 
-    // Determine isActive based on status
+    
     let isActive = false;
     if (status === "active") isActive = true;
     if (status === "pending") isActive = false;
     if (status === "rejected") isActive = false;
 
-    // Create user
+  
     const user = new User({
       name,
       email,
@@ -189,7 +189,7 @@ export const addUserByAdmin = async (req, res) => {
 
 
 
-////==========================deposit==================
+//==========================deposit==================
 
 
 export const approveDeposit = async (req, res) => {
@@ -206,13 +206,13 @@ export const approveDeposit = async (req, res) => {
       return res.status(400).json({ message: "Already processed" });
     }
 
-    // update deposit
+    
     deposit.status = "approved";
-    deposit.approvedBy = req.admin._id; // admin id
+    deposit.approvedBy = req.admin._id; 
     deposit.approvedAt = new Date();
     await deposit.save();
 
-    // wallet credit
+  
     await addTransaction({
       userId: deposit.user,
       type: "credit",
@@ -274,7 +274,7 @@ export const getAllWithdrawals = async (req, res) => {
   }
 };
 
-// ================= ADMIN: PROCESS WITHDRAWAL (REAL MONEY TRANSFER) =================
+// ================= PROCESS WITHDRAWAL  =================
 export const processWithdrawal = async (req, res) => {
   try {
     const { withdrawalId, action, adminRemark } = req.body;

@@ -25,7 +25,7 @@ export const Register = async (req, res) => {
       });
     }
 
-    // ================= CHECK EXISTING USER =================
+    
     const exist = await User.findOne({ email });
     if (exist) {
       return res.status(400).json({
@@ -34,11 +34,11 @@ export const Register = async (req, res) => {
       });
     }
 
-    // ================= REFERRAL HANDLING (OPTIONAL) =================
+    
     let parent = null;
     let referredByName = null;
 
-    // Check both field names
+    
     const referralCode = referral || referrel;
 
     if (referralCode && referralCode.trim() !== "") {
@@ -61,13 +61,13 @@ export const Register = async (req, res) => {
       );
     }
 
-    // ================= GENERATE UNIQUE REFERRAL CODE =================
+    
     let newReferralCode = generateReferralCode();
     while (await User.findOne({ referral: newReferralCode })) {
       newReferralCode = generateReferralCode();
     }
 
-    // ================= CREATE USER =================
+    
     const user = new User({
       name,
       email,
@@ -76,19 +76,19 @@ export const Register = async (req, res) => {
       referral: newReferralCode,
     });
     console.log(user);
-    // ================= IF REFERRAL EXISTS - SET parentUnilevel BEFORE SAVE =================
+    
     if (parent) {
       user.parentUnilevel = parent._id;
       console.log(" Set parentUnilevel to:", user.parentUnilevel);
     }
 
-    // ================= SAVE USER FIRST =================
+    
     await user.save();
     console.log(" User saved successfully:", user.name);
 
-    // ================= IF REFERRAL EXISTS - UPDATE PARENT AFTER SAVE =================
+    
     if (parent) {
-      // Add to parent's referredUsers array and increment pendingReferralCount
+      
       await User.findByIdAndUpdate(parent._id, {
         $push: {
           referredUsers: {
@@ -103,7 +103,7 @@ export const Register = async (req, res) => {
         $inc: { pendingReferralCount: 1 },
       });
 
-      // Verify update
+    
       const updatedParent = await User.findById(parent._id);
       console.log(
         " Parent pendingReferralCount after:",
@@ -115,15 +115,15 @@ export const Register = async (req, res) => {
       );
     }
 
-    // ================= GENERATE TOKEN =================
+    
     const userToken = Usertoken(user);
     user.token = userToken;
     await user.save();
 
-    // ================= SEND WELCOME EMAIL =================
+  
     await sendRegistrationEmail(user);
 
-    // ================= RESPONSE =================
+    
     return res.status(201).json({
       success: true,
       message: parent
@@ -142,7 +142,7 @@ export const Register = async (req, res) => {
       },
     });
 
-    // ✅ ADD CONSOLE LOG HERE
+    
     console.log("=== REGISTER RESPONSE DATA ===");
     console.log("User ID:", user._id);
     console.log("User Name:", user.name);
@@ -182,7 +182,7 @@ export const Login = async (req, res) => {
       });
     }
 
-    // Check if blocked
+  
     if (user.isBlocked) {
       return res.status(403).json({
         success: false,
@@ -198,10 +198,10 @@ export const Login = async (req, res) => {
       });
     }
 
-    // Update last login
+
     user.lastLogin = new Date();
 
-    // Generate token
+    
     const userToken = Usertoken(user);
     user.token = userToken;
     await user.save();

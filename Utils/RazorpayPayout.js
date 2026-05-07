@@ -5,7 +5,7 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_SECRET
 });
 
-// RazorpayX Account Number (from dashboard)
+
 const RAZORPAYX_ACCOUNT_NUMBER = process.env.RAZORPAYX_ACCOUNT_NUMBER;
 
 // ================= CREATE FUND ACCOUNT (BANK) =================

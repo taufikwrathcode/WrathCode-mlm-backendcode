@@ -1,17 +1,34 @@
 import mongoose from "mongoose";
 
 const withdrawalSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  user: {
+     type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+       required: true 
+      },
   
-  // Amount details
-  amount: { type: Number, required: true },           // Requested amount
-  taxAmount: { type: Number, required: true },        // 10% TDS
-  finalAmount: { type: Number, required: true },      // Amount after tax
   
-  // Payment method
-  method: { type: String, enum: ["bank", "upi", "crypto"], required: true },
+  amount: { 
+    type: Number,
+     required: true 
+    },          
+  taxAmount: {
+     type: Number, 
+     required: true
+     },        
+  finalAmount: {
+     type: Number,
+      required: true
+     },      
   
-  // User's payment details
+  
+  method: {
+     type: String,
+      enum: ["bank", "upi", "crypto"], 
+      required: true
+     },
+  
+  
   paymentDetails: {
     bank: {
       accountNumber: String,
@@ -23,10 +40,12 @@ const withdrawalSchema = new mongoose.Schema({
     cryptoAddress: String,
   },
   
-  // Razorpay fund account ID (created once, reused)
-  fundAccountId: { type: String },
   
-  // Status tracking
+  fundAccountId: {
+     type: String 
+    },
+  
+  
   status: { 
     type: String, 
     enum: ["pending", "approved", "rejected", "failed"], 
@@ -34,16 +53,28 @@ const withdrawalSchema = new mongoose.Schema({
   },
 
   
-  transactionId: { type: String },      // Razorpay payout ID
-  referenceId: { type: String },        // Our reference
+  transactionId: {
+     type: String 
+    },     
+  referenceId: {
+     type: String
+     },
   
-  // Admin tracking
-  processedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" },
+  
+  processedBy: { type:
+     mongoose.Schema.Types.ObjectId,
+      ref: "Admin"
+     },
   processedAt: Date,
-  adminRemark: { type: String, default: "" },
+  adminRemark: {
+     type: String, 
+     default: ""
+     },
   
-  // Payout response
-  payoutResponse: { type: Object }
+  
+  payoutResponse: {
+     type: Object
+     }
 
 }, { timestamps: true });
 

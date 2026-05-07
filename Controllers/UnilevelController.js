@@ -91,20 +91,13 @@ export const getUnilevelTree = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    /* =========================
-       GET ALL MEMBERS (3 TREES)
-    ========================= */
+
     const rawMembers = await User.find({
-      $or: [
-        { parent: userId },
-        { parentMatrix: userId },
-        { parentUnilevel: userId }
-      ]
+      parentUnilevel: userId,
+      "plans.name": "Unilevel"
     });
 
-    /* =========================
-       SEARCH FILTER
-    ========================= */
+   
     let filtered = rawMembers;
 
     if (search) {
@@ -115,9 +108,7 @@ export const getUnilevelTree = async (req, res) => {
       );
     }
 
-    /* =========================
-       FORMAT MEMBERS LIST
-    ========================= */
+    
     const members = await Promise.all(
       filtered.map(async (m) => ({
         id: m._id,
@@ -132,9 +123,7 @@ export const getUnilevelTree = async (req, res) => {
       }))
     );
 
-    /* =========================
-       LEVEL WISE COUNT
-    ========================= */
+    
     const levelMap = {};
 
     members.forEach((m) => {
@@ -148,9 +137,7 @@ export const getUnilevelTree = async (req, res) => {
 
     const totalMembers = members.length;
 
-    /* =========================
-       NETWORK GROWTH
-    ========================= */
+    
     const last7Days = new Date();
     last7Days.setDate(last7Days.getDate() - 7);
 

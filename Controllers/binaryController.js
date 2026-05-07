@@ -1,8 +1,8 @@
 import { User } from "../models/User.js";
 import { Admin } from "../models/Admin.js";
 import { startROI } from "../Utils/ROI.js";
-import {distributeLevelIncome} from "../Utils/Level.js";
-import {checkRank } from "../Utils/RANK.js";
+import { distributeLevelIncome } from "../Utils/Level.js";
+import { checkRank } from "../Utils/RANK.js";
 import { distributeBinaryIncome } from "../Utils/Binaryincom.js";
 
 export const joinBinary = async (req, res) => {
@@ -11,7 +11,7 @@ export const joinBinary = async (req, res) => {
     const userId = req.user._id;
 
     const user = await User.findById(userId);
-    
+
     const hasPlan = user.plans.some(p => p.name === "Binary");
     if (!hasPlan) {
       return res.status(400).json({ message: "Buy Binary plan first" });
@@ -38,13 +38,13 @@ export const joinBinary = async (req, res) => {
     if (finalParent.left && finalParent.right) {
       const queue = [finalParent];
       let found = false;
-      
+
       while (queue.length && !found) {
         const current = queue.shift();
-        
+
         if (current.left) queue.push(await User.findById(current.left));
         if (current.right) queue.push(await User.findById(current.right));
-        
+
         if (!current.left || !current.right) {
           finalParent = current;
           finalPosition = !current.left ? "left" : "right";
@@ -52,7 +52,7 @@ export const joinBinary = async (req, res) => {
           break;
         }
       }
-      
+
       if (!found) {
         return res.status(400).json({ message: "Binary tree full" });
       }
@@ -163,60 +163,90 @@ export const getBinaryTree = async (req, res) => {
 };
 
 // =================== GET LIST VIEW =================
+
+
 export const getListView = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { levelFilter } = req.query;
 
-    const fetchDownline = async (parentIds, currentLevel, allMembers = []) => {
+    const fetchDownline = async (parentIds, currentLevel, type, allMembers = []) => {
       if (currentLevel > 10) return allMembers;
 
-      const members = await User.find({ parent: { $in: parentIds } })
-        .populate("parent", "name")
-        .select("name email isActive createdAt")
+      let query = {};
+      let sponsorField = "";
+
+      if (type === "Matrix") {
+        query = { parentMatrix: { $in: parentIds }, "plans.name": "Matrix" };
+        sponsorField = "parentMatrix";
+      } else if (type === "Unilevel") {
+        query = { parentUnilevel: { $in: parentIds }, "plans.name": "Unilevel" };
+        sponsorField = "parentUnilevel";
+      } else {
+        query = { parent: { $in: parentIds }, "plans.name": "Binary" };
+        sponsorField = "parent";
+      }
+
+      const members = await User.find(query)
+        .populate(sponsorField, "name")
+        .select(`name email isActive createdAt parent parentMatrix parentUnilevel plans childrenUni`)
         .lean();
 
       if (members.length === 0) return allMembers;
 
-      const membersWithReferrals = await Promise.all(
+      const membersFormatted = await Promise.all(
         members.map(async (m) => {
-          const referralCount = await User.countDocuments({ parent: m._id });
+          let referralCount = 0;
+          if (type === "Matrix") referralCount = (m.leftMatrix ? 1 : 0) + (m.middleMatrix ? 1 : 0) + (m.rightMatrix ? 1 : 0);
+          else if (type === "Unilevel") referralCount = m.childrenUni?.length || 0;
+          else referralCount = (m.left ? 1 : 0) + (m.right ? 1 : 0);
+
+          const volume = m.plans?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+
           return {
-            ...m,
-            level: currentLevel,
-            sponsorName: m.parent ? m.parent.name : "You",
-            referralCount
+            name: m.name,
+            email: m.email,
+            level: `Level ${currentLevel}`,
+            referrals: referralCount,
+            joinDate: new Date(m.createdAt).toLocaleDateString("en-GB"),
+            sponsor: m[sponsorField] ? m[sponsorField].name : "You",
+            status: m.isActive ? "Active" : "Inactive",
+            volume: volume,
+            isActive: m.isActive
           };
         })
       );
 
-      allMembers.push(...membersWithReferrals);
+      allMembers.push(...membersFormatted);
       const nextParentIds = members.map(m => m._id);
-      return fetchDownline(nextParentIds, currentLevel + 1, allMembers);
+      return fetchDownline(nextParentIds, currentLevel + 1, type, allMembers);
     };
 
-    let fullList = await fetchDownline([userId], 1);
+    const binaryMembers = await fetchDownline([userId], 1, "Binary");
+    const matrixMembers = await fetchDownline([userId], 1, "Matrix");
+    const unilevelMembers = await fetchDownline([userId], 1, "Unilevel");
 
-    const totalMembers = fullList.length;
-    const activeMembers = fullList.filter(m => m.isActive).length;
-
-    if (levelFilter && levelFilter !== "All") {
-      const lvl = parseInt(levelFilter);
-      fullList = fullList.filter(m => m.level === lvl);
-    }
+    const getStats = (members) => ({
+      totalMembers: members.length,
+      activeMembers: members.filter(m => m.isActive).length,
+      totalVolume: members.reduce((sum, m) => sum + (m.volume || 0), 0)
+    });
 
     res.status(200).json({
       success: true,
-      stats: { totalMembers, activeMembers },
-      members: fullList.map(m => ({
-        name: m.name,
-        email: m.email,
-        level: `Level ${m.level}`,
-        referrals: m.referralCount,
-        joinDate: new Date(m.createdAt).toLocaleDateString("en-GB"),
-        sponsor: m.sponsorName,
-        status: m.isActive ? "Active" : "Inactive"
-      }))
+      data: {
+        Binary: {
+          stats: getStats(binaryMembers),
+          members: binaryMembers
+        },
+        Matrix: {
+          stats: getStats(matrixMembers),
+          members: matrixMembers
+        },
+        Unilevel: {
+          stats: getStats(unilevelMembers),
+          members: unilevelMembers
+        }
+      }
     });
 
   } catch (error) {

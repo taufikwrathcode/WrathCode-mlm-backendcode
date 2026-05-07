@@ -5,7 +5,7 @@ export const getProfile = async (req, res) => {
   try {
     const user = req.user;
 
-    // ===== KYC =====
+    
     const kyc = await KYC.findOne({ userId: user._id });
 
     let kycStatus = "Pending";
@@ -20,14 +20,14 @@ export const getProfile = async (req, res) => {
     const address = kyc?.address?.trim() || "";
     const userCountry = kyc?.country?.trim() || "";  
 
-    // ===== REFERRALS =====
+    
     const binaryCount = await User.countDocuments({ parent: user._id });
     const unilevelCount = await User.countDocuments({ parentUnilevel: user._id });
     const matrixCount = await User.countDocuments({ parentMatrix: user._id });
 
     const totalReferrals = binaryCount + unilevelCount + matrixCount;
 
-    // ===== PROFILE COMPLETION =====
+    
     const fields = [
       user.name,
       user.email,
@@ -40,7 +40,7 @@ export const getProfile = async (req, res) => {
     const completed = fields.filter((f) => f && f !== "").length;
     const profilePercent = Math.floor((completed / fields.length) * 100);
 
-    // ===== ACTIVE PLANS =====
+    
     const activePlans = user.plans?.map((p) => p.name) || [];
 
       const achievements = [
@@ -51,7 +51,7 @@ export const getProfile = async (req, res) => {
         { id: 5, title: `Rank: ${user.rank}`, description: `Reached ${user.rank} rank level`, unlocked: true }
       ];
 
-      // ===== RESPONSE =====
+      
       return res.status(200).json({
         success: true,
 
@@ -110,7 +110,7 @@ export const Updateprofile = async (req, res) => {
       pincode
     } = req.body || {};
 
-    // ===== FIND USER =====
+    
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -119,14 +119,12 @@ export const Updateprofile = async (req, res) => {
       });
     }
 
-    // ===== UPDATE USER =====
+  
     if (name) {
       user.name = name;
     }
 
     await user.save();
-
-    // ===== KYC UPDATE =====
     let kyc = await KYC.findOne({ userId });
 
     if (!kyc) {
@@ -157,7 +155,7 @@ export const Updateprofile = async (req, res) => {
       kyc.pincode = pincode;
     }
 
-    // ===== OPTIONAL: AUTO COMPLETE FLAG =====
+    
     if (
       kyc.phoneNumber &&
       kyc.city &&
@@ -169,7 +167,7 @@ export const Updateprofile = async (req, res) => {
 
     await kyc.save();
 
-    // ===== RESPONSE =====
+    
     res.status(200).json({
       success: true,
       message: "Profile updated successfully",

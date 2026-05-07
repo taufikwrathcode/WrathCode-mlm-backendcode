@@ -1,7 +1,6 @@
 import { Ticket } from "../models/Ticket.js";
 import { generateTicketId } from "../Utils/TICKET.js";
 
-// --- 1. USER: Create New Ticket ---
 export const createTicket = async (req, res) => {
     try {
         const { subject, category, priority, description } = req.body;
@@ -20,7 +19,7 @@ export const createTicket = async (req, res) => {
     }
 };
 
-// ---USER: Get My Support History ---
+
 export const getMyTickets = async (req, res) => {
     try {
         const { status } = req.query;
@@ -33,7 +32,7 @@ export const getMyTickets = async (req, res) => {
     }
 };
 
-// --- Get All Users Tickets 
+
 export const getAllTickets = async (req, res) => {
     try {
         const { status } = req.query;
@@ -41,7 +40,7 @@ export const getAllTickets = async (req, res) => {
         if (status && status !== 'All') filter.status = status.toLowerCase();
 
         const tickets = await Ticket.find(filter)
-            .populate('userId', 'name email') // User details fetch karne ke liye
+            .populate('userId', 'name email') 
             .sort({ createdAt: -1 });
 
         res.status(200).json({ success: true, allTickets: tickets });
@@ -50,7 +49,7 @@ export const getAllTickets = async (req, res) => {
     }
 };
 
-// --- 4. ADMIN: Update Status (Approve/Reject) ---
+// ----------------Update Status-----------
 export const updateTicketStatus = async (req, res) => {
     try {
         const { id } = req.params; 
@@ -63,7 +62,7 @@ export const updateTicketStatus = async (req, res) => {
     }
 };
 
-// --- 5. SHARED: Chat/Reply ---
+
 export const addReply = async (req, res) => {
     try {
         const { ticketId, message } = req.body; 

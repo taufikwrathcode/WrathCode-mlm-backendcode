@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const ROIConfigSchema = new mongoose.Schema({
 
-  // 1. ROI Percentage (return on investment percentage)
+  
   roiPercentage: {
     type: Number,
     required: true,
@@ -11,7 +11,7 @@ const ROIConfigSchema = new mongoose.Schema({
     max: 100
   },
 
-  // 2. ROI Frequency (how often ROI is calculated)
+  
   roiFrequency: {
     type: String,
     required: true,
@@ -19,7 +19,7 @@ const ROIConfigSchema = new mongoose.Schema({
     default: "daily"
   },
 
-  // 3. Validity Period (days) - ROI calculation period
+  
   validityPeriod: {
     type: Number,
     required: true,
@@ -27,13 +27,13 @@ const ROIConfigSchema = new mongoose.Schema({
     min: 1
   },
 
-  // 4. Capital Lock (lock capital during ROI period) - Toggle button
+  
   capitalLock: {
     type: Boolean,
     default: false
   },
 
-  // 5. ROI Stop Conditions
+  
   roiStopConditions: {
     type: [String],
     default: ["period_expiry", "max_reached"],
@@ -43,7 +43,7 @@ const ROIConfigSchema = new mongoose.Schema({
   
   maxROIAmount: {
     type: Number,
-    default: 0,  // 0 means no limit
+    default: 0,  
     description: "Maximum ROI amount (0 = unlimited)"
   },
 

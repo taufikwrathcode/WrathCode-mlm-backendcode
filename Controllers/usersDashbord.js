@@ -5,7 +5,7 @@ import { Transaction } from "../models/transection.js"
 import { addTransaction } from "../Utils/wallet.js";
 import dotenv from "dotenv"
 dotenv.config();
-// For dashboard summary
+
 
 export const getUserDashboard = async (req, res) => {
   try {
@@ -16,18 +16,18 @@ export const getUserDashboard = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // ================== 1. DASHBOARD STATS ==================
+    // ==================  DASHBOARD STATS ==================
     const totalReferrals = (user.activeReferralCount || 0) + (user.pendingReferralCount || 0);
     const activeReferrals = user.activeReferralCount || 0;
     const pendingReferrals = user.pendingReferralCount || 0;
 
-    // Get total earnings from commissions
+    
     const totalEarningsFromCommissions = await Commission.aggregate([
       { $match: { user: user._id } },
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]);
 
-    // Merge commission earnings + referral earnings
+    
     const commissionEarnings = totalEarningsFromCommissions[0]?.total || 0;
     const referralEarnings = user.totalReferralEarnings || 0;
     const totalEarnings = commissionEarnings + referralEarnings;
@@ -54,7 +54,7 @@ export const getUserDashboard = async (req, res) => {
 
     };
 
-    // ================== 2. RECENT COMMISSIONS ==================
+    
     const recentCommissions = await Commission.find({ user: user._id })
       .sort({ createdAt: -1 })
       .limit(5)
@@ -67,7 +67,7 @@ export const getUserDashboard = async (req, res) => {
       date: c.createdAt,
     }));
 
-    // ================== 3. RECENT ORDERS ==================
+  
     const recentOrders = (user.plans || [])
       .sort((a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate))
       .slice(0, 5)
@@ -77,7 +77,7 @@ export const getUserDashboard = async (req, res) => {
         date: p.purchaseDate,
       }));
 
-    // ================== 4. TOP PERFORMERS ==================
+
     const topPerformers = await User.find({ parentUnilevel: user._id })
       .sort({ totalEarned: -1 })
       .limit(5)
@@ -90,7 +90,7 @@ export const getUserDashboard = async (req, res) => {
       investment: u.investment || 0
     }));
 
-    // ================== FINAL RESPONSE ==================
+    
     return res.json({
       success: true,
       data: {
@@ -106,34 +106,33 @@ export const getUserDashboard = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-//====================================Quick Action===============================
+
 
 //=================================Shere Reffal Link==============================
 
-// shere refferal or code
 export const getUserReferralDashboard = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // NEW WAY - referredUsers field use karo (jo User Schema mein add kiya tha)
+
     const user = await User.findById(userId).populate("referredUsers.user", "name email createdAt");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // ================== 1. REFERRAL INFO ==================
+    
     const referralCode = user.referral;
     const referralLink = `${process.env.APP_URL}/register?ref=${referralCode}`;
     console.log(referralCode, referralLink);
 
-    // ================== 2. REFERRAL STATS (FROM USER SCHEMA) ==================
+    
     const totalReferrals = (user.activeReferralCount || 0) + (user.pendingReferralCount || 0);
     const activeReferrals = user.activeReferralCount || 0;
     const pendingReferrals = user.pendingReferralCount || 0;
     const totalEarnings = user.totalReferralEarnings || 0;
 
-    // ================== 3. REFERRAL LIST ==================
+  
     const referralList = (user.referredUsers || []).map((ref) => ({
       name: ref.user?.name || "Unknown",
       email: ref.user?.email || "Unknown",
@@ -189,7 +188,7 @@ export const getCommissionDashboard = async (req, res) => {
       description: { $not: /Deposit|Transfer/i }
     };
 
-    // ================= SUMMARY (OPTIMIZED) =================
+    // ================= SUMMARY  =================
     const summaryData = await Transaction.aggregate([
       { $match: baseQuery },
       {
@@ -211,7 +210,7 @@ export const getCommissionDashboard = async (req, res) => {
     ]);
     console.log(summaryData)
 
-    // ================= THIS MONTH =================
+  
     const thisMonthData = await Transaction.aggregate([
       {
         $match: {
@@ -240,7 +239,7 @@ export const getCommissionDashboard = async (req, res) => {
       thisMonth: thisMonthData[0]?.total || 0
     };
     console.log(summary)
-    // ================= MONTHLY TREND =================
+  
     const trend = await Transaction.aggregate([
       { $match: baseQuery },
       {
@@ -261,7 +260,7 @@ export const getCommissionDashboard = async (req, res) => {
       total: t.total
     }));
     console.log(monthlyTrend)
-    // ================= HISTORY =================
+    
     const commissions = await Transaction.find(baseQuery)
       .sort({ createdAt: -1 });
 
@@ -301,11 +300,11 @@ export const getWalletDashboard = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // Main wallet from User model
+  
     const user = await User.findById(userId);
     const mainBalance = user?.wallet || 0;
 
-    // Other wallets from Wallet model
+  
     let wallet = await Wallet.findOne({ user: userId });
     if (!wallet) {
       wallet = await Wallet.create({
@@ -323,7 +322,7 @@ export const getWalletDashboard = async (req, res) => {
     const totalBalance = mainBalance + income.balance + roi.balance + fund.balance;
     const totalPending = income.pending + roi.pending + fund.pending;
 
-    // Transactions
+    
     const transactions = await Transaction.find({ user: userId })
       .sort({ createdAt: -1 })
       .limit(20);
@@ -361,7 +360,7 @@ export const getWalletDashboard = async (req, res) => {
   }
 };
 
-// ================= TRANSFER WALLET TO WALLET (FULLY FIXED) =================
+// ================= TRANSFER WALLET TO WALLET  =================
 const VALID_FROM = ["main", "income", "roi", "fund"];
 const VALID_TO = ["income", "roi", "fund"];
 
@@ -387,7 +386,7 @@ export const transferWalletToWallet = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid amount" });
     }
 
-    // ================= CASE 1: FROM MAIN WALLET =================
+    // =================FROM MAIN WALLET =================
     if (fromWallet === "main") {
       const user = await User.findById(userId);
       if (!user) return res.status(404).json({ success: false, message: "User not found" });
@@ -396,11 +395,11 @@ export const transferWalletToWallet = async (req, res) => {
         return res.status(400).json({ success: false, message: "Insufficient balance in main wallet" });
       }
 
-      // Deduct from main
+      
       user.wallet -= amount;
       await user.save();
 
-      // Add to target wallet
+    
       let wallet = await Wallet.findOne({ user: userId });
       if (!wallet) {
         wallet = await Wallet.create({
@@ -419,7 +418,7 @@ export const transferWalletToWallet = async (req, res) => {
       target.balance = (target.balance || 0) + amount;
       await wallet.save();
 
-      // Transaction record - Debit from source
+    
       await Transaction.create({
         user: userId,
         type: "debit",
@@ -429,7 +428,7 @@ export const transferWalletToWallet = async (req, res) => {
         status: "paid"
       });
 
-      // Transaction record - Credit to destination
+    
       await Transaction.create({
         user: userId,
         type: "credit",
@@ -470,12 +469,12 @@ export const transferWalletToWallet = async (req, res) => {
         return res.status(400).json({ success: false, message: `Insufficient balance in ${fromWallet} wallet` });
       }
 
-      // Transfer
+    
       from.balance = (from.balance || 0) - amount;
       to.balance = (to.balance || 0) + amount;
       await wallet.save();
 
-      // Transaction record - Debit from source
+      
       await Transaction.create({
         user: userId,
         type: "debit",
@@ -485,7 +484,7 @@ export const transferWalletToWallet = async (req, res) => {
         status: "paid"
       });
 
-      // Transaction record - Credit to destination
+      
       await Transaction.create({
         user: userId,
         type: "credit",
@@ -565,16 +564,28 @@ export const getNetworkDashboard = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    /* =========================
-       GET ALL MEMBERS (3 TREES)
-    ========================= */
-    const rawMembers = await User.find({
-      $or: [
-        { parent: userId },
-        { parentMatrix: userId },
-        { parentUnilevel: userId }
-      ]
-    });
+    
+    const type = req.query.type; 
+    let query = {};
+
+    if (type === "Binary") {
+      query = { parent: userId };
+    } else if (type === "Matrix") {
+      query = { parentMatrix: userId };
+    } else if (type === "Unilevel") {
+      query = { parentUnilevel: userId };
+    } else {
+      
+      query = {
+        $or: [
+          { parent: userId },
+          { parentMatrix: userId },
+          { parentUnilevel: userId }
+        ]
+      };
+    }
+
+    const rawMembers = await User.find(query);
 
     /* =========================
        SEARCH FILTER
@@ -589,15 +600,13 @@ export const getNetworkDashboard = async (req, res) => {
       );
     }
 
-    /* =========================
-       FORMAT MEMBERS LIST
-    ========================= */
+    
     const members = await Promise.all(
       filtered.map(async (m) => ({
         id: m._id,
         name: m.name,
 
-        // REAL LEVEL (1,2,3...)
+      
         level: await getUserLevel(userId, m._id),
 
         referrals: m.childrenUni?.length || 0,
@@ -606,9 +615,7 @@ export const getNetworkDashboard = async (req, res) => {
       }))
     );
 
-    /* =========================
-       LEVEL WISE COUNT
-    ========================= */
+    
     const levelMap = {};
 
     members.forEach((m) => {
@@ -622,9 +629,7 @@ export const getNetworkDashboard = async (req, res) => {
 
     const totalMembers = members.length;
 
-    /* =========================
-       NETWORK GROWTH
-    ========================= */
+   
     const last7Days = new Date();
     last7Days.setDate(last7Days.getDate() - 7);
 
@@ -675,7 +680,7 @@ export const getInvestmentDashboard = async (req, res) => {
 
     const today = new Date();
 
-    //  INVESTMENT SUMMARY (Top Cards) ---
+    
     const summary = {
       totalInvestedAmount: user.investment || 0,
       totalReturnAmount: user.roiGiven || 0,
@@ -683,7 +688,7 @@ export const getInvestmentDashboard = async (req, res) => {
       activeInvestment: (user.roiEndDate && today <= new Date(user.roiEndDate)) ? user.investment : 0,
     };
 
-    //  MONTHLY EARNINGS TREND (Last 6 Months) ---
+    
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
@@ -728,7 +733,7 @@ export const getInvestmentDashboard = async (req, res) => {
       };
     });
 
-    // --- FINAL RESPONSE ---
+    
     return res.status(200).json({
       success: true,
       data: {

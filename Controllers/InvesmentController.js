@@ -20,11 +20,19 @@ import {
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
-// Razorpay Instance
+
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "rzp_test_key",
   key_secret: process.env.RAZORPAY_SECRET || "rzp_test_secret",
 });
+
+
+const PLAN_PRICE = {
+  "Binary": 100,
+  "Matrix": 200,
+  "Unilevel": 150,
+  "basic": 100
+};
 
 // Bank Configuration
 const BANK_DETAILS = {
@@ -194,12 +202,30 @@ export const verifyRazorpayPayment = async (req, res) => {
 
     await user.save();
 
-    //  AUTO JOIN HERE (FIXED LOCATION)
+    
     const freshUser = await User.findById(user._id);
+    const { mlmType: noteMLMType } = order.notes;
 
-    if (plan === "Binary") await joinBinaryAuto(freshUser);
-    if (plan === "Matrix") await joinMatrixAuto(freshUser);
-    if (plan === "Unilevel") await joinUnilevelAuto(freshUser);
+    
+    const planMap = {
+      "binary": "Binary",
+      "matrix": "Matrix",
+      "unilevel": "Unilevel",
+      "basic": "Binary"
+    };
+
+    
+    const normalizedMLMType = noteMLMType?.toLowerCase?.() || "";
+    let finalPlanToJoin = planMap[normalizedMLMType];
+
+    if (!finalPlanToJoin) {
+      const normalizedPlan = plan?.toLowerCase?.() || "";
+      finalPlanToJoin = planMap[normalizedPlan];
+    }
+
+    if (finalPlanToJoin === "Binary") await joinBinaryAuto(freshUser);
+    else if (finalPlanToJoin === "Matrix") await joinMatrixAuto(freshUser);
+    else if (finalPlanToJoin === "Unilevel") await joinUnilevelAuto(freshUser);
     return res.status(200).json({
       success: true,
       message: "Payment verified & plan activated",
@@ -217,7 +243,7 @@ export const initializeBankTransfer = async (req, res) => {
     const userId = req.user._id;
     const { plan } = req.body;
 
-    // Validate plan
+    
     if (!PLAN_PRICE[plan]) {
       return res.status(400).json({
         success: false,
@@ -225,7 +251,7 @@ export const initializeBankTransfer = async (req, res) => {
       });
     }
 
-    // KYC CHECK
+    
     const isKYC = await checkKYCApproved(userId);
     if (!isKYC) {
       return res.status(400).json({
@@ -242,7 +268,7 @@ export const initializeBankTransfer = async (req, res) => {
     const amount = PLAN_PRICE[plan];
     const referenceId = `REF-${userId}-${plan}-${Date.now()}`;
 
-    // Store payment request
+    
     if (!user.payments) user.payments = [];
 
     user.payments.push({
@@ -256,7 +282,7 @@ export const initializeBankTransfer = async (req, res) => {
 
     await user.save();
 
-    // Send Bank Transfer Email with Instructions
+  
     await sendBankTransferEmail(user, plan, amount, referenceId, BANK_DETAILS);
 
     return res.status(200).json({
@@ -304,7 +330,7 @@ export const verifyBankTransfer = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Find payment request
+    
     const paymentIndex = user.payments.findIndex(
       (p) => p.referenceId === referenceId,
     );
@@ -316,12 +342,12 @@ export const verifyBankTransfer = async (req, res) => {
     const payment = user.payments[paymentIndex];
     const { plan, amount } = payment;
 
-    // Update payment status
+    
     payment.status = "pending_admin_verification";
     payment.transactionId = transactionId;
     payment.submittedAt = new Date();
 
-    // Add plan to user (but mark as inactive until admin verifies)
+    
     user.plans.push({
       name: plan,
       amount: amount,
@@ -331,7 +357,6 @@ export const verifyBankTransfer = async (req, res) => {
       status: "pending_verification",
     });
 
-    // Update investment
     user.investment = (user.investment || 0) + amount;
     user.maxEarning = (user.maxEarning || 0) + amount * 2;
 
@@ -389,7 +414,7 @@ export const initializeOfflinePayment = async (req, res) => {
     const amount = PLAN_PRICE[plan];
     const referenceId = `OFFLINE-${userId}-${plan}-${Date.now()}`;
 
-    // Store payment request
+    
     if (!user.payments) user.payments = [];
 
     user.payments.push({
@@ -403,7 +428,7 @@ export const initializeOfflinePayment = async (req, res) => {
 
     await user.save();
 
-    // Send Offline Payment Email with Reference ID
+    
     await sendOfflinePaymentEmail(user, plan, amount, referenceId);
 
     return res.status(200).json({
@@ -449,7 +474,8 @@ export const initializeOfflinePayment = async (req, res) => {
 export const buyPlan = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?._id;
-    const { amount, planId } = req.body;
+    const { amount, planId, mlmType } = req.body;
+    console.log("BUY PLAN REQUEST - User:", userId, "Plan:", planId, "MLM Type:", mlmType, "Amount:", amount);
 
     // VALIDATION
     if (!userId) {
@@ -483,7 +509,7 @@ export const buyPlan = async (req, res) => {
       });
     }
 
-    // 2. FETCH USER
+    
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -492,7 +518,7 @@ export const buyPlan = async (req, res) => {
       });
     }
 
-    // 3. RANK LIMITS
+  
     const currentRank = user.rank || "Bronze";
     const limits = RANK_PLANS[currentRank];
 
@@ -503,7 +529,6 @@ export const buyPlan = async (req, res) => {
       });
     }
 
-    // 4. INVESTMENT RANGE CHECK
     if (amountNum < limits.min) {
       return res.status(400).json({
         success: false,
@@ -518,7 +543,7 @@ export const buyPlan = async (req, res) => {
       });
     }
 
-    // 5. BALANCE CHECK
+    
     if (user.wallet < amountNum) {
       return res.status(400).json({
         success: false,
@@ -526,22 +551,34 @@ export const buyPlan = async (req, res) => {
       });
     }
 
-    // 6. VALIDATE PLAN ID
-    const validPlans = ["Binary", "Matrix", "Unilevel", "basic"];
-    let finalPlanName = planId;
+    
+    const planMap = {
+      "binary": "Binary",
+      "matrix": "Matrix",
+      "unilevel": "Unilevel",
+      "basic": "Binary"
+    };
 
-    if (planId === "basic") {
-      finalPlanName = "Binary";
+    
+    const normalizedMLMType = mlmType?.toLowerCase?.() || "";
+    let finalPlanName = planMap[normalizedMLMType];
+
+  
+    if (!finalPlanName) {
+      const normalizedPlanId = planId?.toLowerCase?.() || "";
+      finalPlanName = planMap[normalizedPlanId];
     }
 
-    if (!validPlans.includes(planId)) {
+    if (!finalPlanName) {
       return res.status(400).json({
         success: false,
-        message: `Invalid plan selected: "${planId}"`,
+        message: `Invalid plan or MLM type selected. Valid types: Binary, Matrix, Unilevel`,
       });
     }
 
-    // 7. UPDATE & SAVE
+    console.log(`Plan requested: "${planId}" → resolved to: "${finalPlanName}"`);
+
+
     user.wallet -= amountNum;
     user.investment = (user.investment || 0) + amountNum;
     user.isActive = true;
@@ -558,12 +595,12 @@ export const buyPlan = async (req, res) => {
       status: "active",
     });
 
-    // Start ROI
+    
     await startROI(user, amountNum, limits);
 
     await user.save();
 
-    // ================= 8. AUTO JOIN TREE =================
+    // ================= AUTO JOIN TREE =================
     const freshUser = await User.findById(user._id);
 
     console.log("=== AUTO JOIN CHECK ===");
@@ -581,12 +618,12 @@ export const buyPlan = async (req, res) => {
       await joinUnilevelAuto(freshUser);
     }
 
-    // 9. SPONSOR BONUS
+    
     console.log("========== SPONSOR BONUS CHECK ==========");
     console.log("User ID:", user._id);
     console.log("User Name:", user.name);
     console.log("parentUnilevel:", user.parentUnilevel);
-    
+
     if (user.parentUnilevel) {
       console.log("Calling activateReferralAndGiveBonus for sponsor:", user.parentUnilevel);
       const bonusResult = await activateReferralAndGiveBonus(
@@ -600,10 +637,10 @@ export const buyPlan = async (req, res) => {
       console.log("No parentUnilevel found - No sponsor bonus will be given");
     }
 
-    // 10. LEVEL INCOME DISTRIBUTION
+  
     await distributeLevelIncome(user, amountNum, finalPlanName);
 
-    // 11. Transaction Log
+    
     try {
       await addTransaction({
         userId,
@@ -644,7 +681,7 @@ export const buyPlan = async (req, res) => {
     });
   }
 };
-// ================== GET INVESTMENT PLANS (GET /buy) ==================
+// ================== GET INVESTMENT PLANS  ==================
 export const getInvestment = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?._id;
@@ -667,21 +704,21 @@ export const getInvestment = async (req, res) => {
 
     const plans = user.plans || [];
 
-    // ================== 1. SUMMARY ==================
+    
     let totalInvested = 0;
     let totalReturns = 0;
     let pendingReturns = 0;
 
-    // ================== 2. ACTIVE COUNT ==================
+    
     let activeCount = 0;
 
-    // ================== 4. ACTIVE INVESTMENTS ==================
+  
     const activeInvestments = [];
 
-    // ================== 5. HISTORY ==================
+  
     const history = [];
 
-    // ================== MONTHLY TREND ==================
+    
     const monthlyTrend = {};
 
     plans.forEach((plan) => {
@@ -736,7 +773,7 @@ export const getInvestment = async (req, res) => {
         });
       }
 
-      // HISTORY
+      
       history.push({
         plan: plan.planSelected || plan.name,
         amount: `$${amount}`,
@@ -746,7 +783,7 @@ export const getInvestment = async (req, res) => {
         status: isCompleted ? "Completed" : "Pending",
       });
 
-      // MONTHLY TREND
+    
       const month = startDate.toLocaleString("default", {
         month: "short",
       });
@@ -755,7 +792,7 @@ export const getInvestment = async (req, res) => {
         (monthlyTrend[month] || 0) + totalReturn;
     });
 
-    // ==================  ALL PLANS ==================
+    
     const availablePlans = Object.keys(RANK_PLANS).map((rank) => {
       const p = RANK_PLANS[rank];
 
@@ -768,30 +805,30 @@ export const getInvestment = async (req, res) => {
       };
     });
 
-    // ================== FINAL RESPONSE ==================
+    
     return res.status(200).json({
       success: true,
 
-      //  SUMMARY
+      
       summary: {
         totalInvested: `$${totalInvested.toFixed(2)}`,
         totalReturns: `$${totalReturns.toFixed(2)}`,
         pendingReturns: `$${pendingReturns.toFixed(2)}`,
       },
 
-      //  ACTIVE COUNT
+  
       activeInvestmentsCount: activeCount,
 
-      // MONTHLY TREND
+      
       monthlyEarningsTrend: monthlyTrend,
 
-      // AVAILABLE PLANS
+
       availablePlans,
 
-      //  ACTIVE INVESTMENTS
+      
       activeInvestments,
 
-      //  HISTORY
+      
       investmentHistory: history,
     });
   } catch (error) {

@@ -33,7 +33,7 @@ export const getAdminDashboard = async (req, res) => {
       1,
     );
 
-    // 1. TOTAL USERS
+    
     const totalUsers = await User.countDocuments();
     const newUsersThisMonth = await User.countDocuments({
       createdAt: { $gte: firstDayOfMonth },
@@ -51,7 +51,7 @@ export const getAdminDashboard = async (req, res) => {
           ? 100
           : 0;
 
-    // 2. ACTIVE INVESTMENTS
+    
     const activeInvestments = await User.aggregate([
       { $match: { isActive: true } },
       { $group: { _id: null, total: { $sum: "$investment" } } },
@@ -73,7 +73,7 @@ export const getAdminDashboard = async (req, res) => {
           ? 100
           : 0;
 
-    // 3. TOTAL COMMISSIONS
+    
     const totalCommissions = await Commission.aggregate([
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
@@ -94,7 +94,7 @@ export const getAdminDashboard = async (req, res) => {
           ? 100
           : 0;
 
-    // 4. PENDING WITHDRAWALS
+    
     const pendingWithdrawals = await Withdrawal.aggregate([
       { $match: { status: "pending" } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
@@ -116,11 +116,10 @@ export const getAdminDashboard = async (req, res) => {
           ? 100
           : 0;
 
-    // 5. NEW REGISTRATIONS
     const newRegistrations = newUsersThisMonth;
     const registrationGrowth = userGrowth;
 
-    // 6. SYSTEM REVENUE
+    
     const totalDeposits = await Deposit.aggregate([
       { $match: { status: "approved" } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
@@ -191,7 +190,7 @@ export const getAdminDashboard = async (req, res) => {
 async function getRecentActivities() {
   const activities = [];
 
-  // 1. Recent User Registrations
+  
   const recentUsers = await User.find({})
     .sort({ createdAt: -1 })
     .limit(20)
@@ -206,7 +205,7 @@ async function getRecentActivities() {
     });
   });
 
-  // 2. Recent User Logins
+  
   const recentLogins = await User.find({ lastLogin: { $ne: null } })
     .sort({ lastLogin: -1 })
     .limit(20)
@@ -221,7 +220,7 @@ async function getRecentActivities() {
     });
   });
 
-  // 3. Recent Investments (Commissions)
+  
   const recentInvestments = await Commission.find({})
     .sort({ createdAt: -1 })
     .limit(20)
@@ -236,7 +235,7 @@ async function getRecentActivities() {
     });
   });
 
-  // 4. Recent Withdrawal Requests
+  
   const recentWithdrawals = await Withdrawal.find({})
     .sort({ createdAt: -1 })
     .limit(20)
@@ -251,7 +250,7 @@ async function getRecentActivities() {
     });
   });
 
-  // 5. KYC Approves/Rejects
+
   const kycActivities = await KYC.find({
     verifiedAt: { $ne: null },
   })
@@ -268,7 +267,7 @@ async function getRecentActivities() {
     });
   });
 
-  // 6. Deposit Approves
+  
   const approvedDeposits = await Deposit.find({
     status: "approved",
     approvedAt: { $ne: null },
@@ -286,7 +285,7 @@ async function getRecentActivities() {
     });
   });
 
-  // 7. Withdrawal Approves
+  
   const approvedWithdrawals = await Withdrawal.find({
     status: "approved",
     processedAt: { $ne: null },
@@ -304,7 +303,7 @@ async function getRecentActivities() {
     });
   });
 
-  // 8. User Profile Updates
+
   const profileUpdates = await User.find({
     updatedAt: { $ne: null },
     $expr: { $ne: ["$createdAt", "$updatedAt"] },
@@ -322,7 +321,7 @@ async function getRecentActivities() {
     });
   });
 
-  // 9. Block/Unblock Users
+  
   const blockedUsers = await User.find({
     $or: [{ blockedAt: { $ne: null } }, { unblockedAt: { $ne: null } }],
   })
@@ -348,10 +347,9 @@ async function getRecentActivities() {
     }
   });
 
-  // Sort all activities by time (newest first)
   activities.sort((a, b) => new Date(b.time) - new Date(a.time));
 
-  // Return top 50 recent activities (sirf data)
+  
   return activities.slice(0, 50).map((activity) => ({
     type: activity.type,
     title: activity.title,
@@ -376,7 +374,7 @@ export const getSystemReport = async (req, res) => {
       };
     }
 
-    // Get all reports
+    
     const userReport = await getUserReport(dateFilter);
     const investmentReport = await getInvestmentReport(dateFilter);
     const commissionReport = await getCommissionReport(dateFilter);
@@ -395,12 +393,12 @@ export const getSystemReport = async (req, res) => {
       dateRange: { fromDate, toDate },
     };
 
-    // ================= EXPORT TO EXCEL =================
+    
     if (format === "excel") {
       return await exportSystemReportToExcel(reportData, res);
     }
 
-    // ================= JSON RESPONSE (DEFAULT) =================
+    
     res.status(200).json({
       success: true,
       data: reportData,
@@ -442,7 +440,7 @@ async function exportSystemReportToExcel(reportData, res) {
     { metric: "User Growth Trend (Last 6 Months)", value: "" },
   ]);
 
-  // Add growth trend rows
+
   reportData.userReport.userGrowthTrend?.forEach((trend) => {
     userSheet.addRow({
       metric: `  ${trend.month} ${trend.year}`,
@@ -450,7 +448,7 @@ async function exportSystemReportToExcel(reportData, res) {
     });
   });
 
-  // ===== SHEET 2: INVESTMENT REPORT =====
+
   const investmentSheet = workbook.addWorksheet("Investment Report");
   investmentSheet.columns = [
     { header: "Metric", key: "metric", width: 30 },
@@ -493,7 +491,7 @@ async function exportSystemReportToExcel(reportData, res) {
     },
   ]);
 
-  // ===== SHEET 3: COMMISSION REPORT =====
+  
   const commissionSheet = workbook.addWorksheet("Commission Report");
   commissionSheet.columns = [
     { header: "Metric", key: "metric", width: 30 },
@@ -536,7 +534,7 @@ async function exportSystemReportToExcel(reportData, res) {
     },
   ]);
 
-  // ===== SHEET 4: WITHDRAWAL REPORT =====
+  
   const withdrawalSheet = workbook.addWorksheet("Withdrawal Report");
   withdrawalSheet.columns = [
     { header: "Metric", key: "metric", width: 30 },
@@ -617,7 +615,7 @@ async function exportSystemReportToExcel(reportData, res) {
     },
   ]);
 
-  // ===== SHEET 6: ACTIVE LOGS =====
+  
   const logsSheet = workbook.addWorksheet("Active Logs");
   logsSheet.columns = [
     { header: "Type", key: "type", width: 15 },
@@ -646,7 +644,7 @@ async function exportSystemReportToExcel(reportData, res) {
     });
   });
 
-  // Auto-fit columns
+  
   [
     userSheet,
     investmentSheet,
@@ -665,7 +663,7 @@ async function exportSystemReportToExcel(reportData, res) {
     });
   });
 
-  // Set response headers
+  
   const fileName = `System_Report_${new Date().toISOString().split("T")[0]}.xlsx`;
   res.setHeader(
     "Content-Type",
@@ -677,7 +675,7 @@ async function exportSystemReportToExcel(reportData, res) {
   res.end();
 }
 
-// ================= 1. USER REPORT =================
+// =================  USER REPORT =================
 async function getUserReport(dateFilter) {
   const totalUsers = await User.countDocuments();
   const activeUsers = await User.countDocuments({ isActive: true });
@@ -711,7 +709,7 @@ async function getUserReport(dateFilter) {
   };
 }
 
-// ================= 2. INVESTMENT REPORT =================
+// =================  INVESTMENT REPORT =================
 async function getInvestmentReport(dateFilter) {
   const investments = await User.aggregate([
     { $group: { _id: null, total: { $sum: "$investment" } } },
@@ -768,7 +766,7 @@ async function getInvestmentReport(dateFilter) {
   };
 }
 
-// ================= 3. COMMISSION REPORT =================
+// =================  COMMISSION REPORT =================
 async function getCommissionReport(dateFilter) {
   const allCommissions = await Commission.find({});
   const totalCommission = allCommissions.reduce(
@@ -834,7 +832,7 @@ async function getCommissionReport(dateFilter) {
   };
 }
 
-// ================= 4. WITHDRAWAL REPORT =================
+// ================= WITHDRAWAL REPORT =================
 async function getWithdrawalReport(dateFilter) {
   const allWithdrawals = await Withdrawal.find({});
 
@@ -882,7 +880,7 @@ async function getWithdrawalReport(dateFilter) {
   };
 }
 
-// ================= 5. FINANCIAL SUMMARY =================
+// =================FINANCIAL SUMMARY =================
 async function getFinancialSummary(dateFilter) {
   const totalDeposits = await Deposit.aggregate([
     { $match: { status: "approved" } },
@@ -942,7 +940,7 @@ async function getFinancialSummary(dateFilter) {
   };
 }
 
-// ================= 6. ACTIVE LOGS =================
+// =================  ACTIVE LOGS =================
 async function getActiveLogs() {
   const recentTransactions = await Transaction.find({})
     .sort({ createdAt: -1 })
@@ -1051,15 +1049,15 @@ export const getAllUsers = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Get total count for pagination
+    
     const totalUsers = await User.countDocuments(filter);
 
-    // Get KYC status for each user
+
     const usersWithDetails = await Promise.all(
       users.map(async (user) => {
         const kyc = await KYC.findOne({ userId: user._id });
 
-        // Get total investment from plans
+        
         const totalInvestment =
           user.plans?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
 
@@ -1080,7 +1078,6 @@ export const getAllUsers = async (req, res) => {
       }),
     );
 
-    // Stats summary
     const totalActiveUsers = await User.countDocuments({ isActive: true });
     const totalPendingUsers = await User.countDocuments({ isActive: false });
     const totalKycApproved = await KYC.countDocuments({
@@ -1131,7 +1128,7 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-// ================= A USER OVERALL DETAILS =================
+// =================  USER OVERALL DETAILS =================
 export const getUserOverallDetails = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -1143,54 +1140,54 @@ export const getUserOverallDetails = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    // KYC Details
+    
     const kyc = await KYC.findOne({ userId });
 
-    // Total Investment
+    
     const totalInvestment =
       user.plans?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
 
-    // Total Commission Earned
+  
     const totalCommission = await Commission.aggregate([
       { $match: { user: user._id } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
 
-    // Total Deposit
+    
     const totalDeposit = await Deposit.aggregate([
       { $match: { user: user._id, status: "approved" } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
 
-    // Total Withdrawal
+    
     const totalWithdrawal = await Withdrawal.aggregate([
       { $match: { user: user._id, status: "approved" } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
 
-    // Recent Transactions (last 10)
+    
     const recentTransactions = await Transaction.find({ user: user._id })
       .sort({ createdAt: -1 })
       .limit(10);
 
-    // Recent Commissions (last 10)
+    
     const recentCommissions = await Commission.find({ user: user._id })
       .sort({ createdAt: -1 })
       .limit(10)
       .populate("fromUser", "name");
 
-    // Downline Count
+  
     const downlineCount = await User.countDocuments({
       parentUnilevel: user._id,
     });
 
-    // Plans purchased
+    
     const plans = user.plans || [];
 
     res.status(200).json({
       success: true,
       data: {
-        // Basic Info
+        
         basicInfo: {
           id: user._id,
           name: user.name,
@@ -1203,7 +1200,7 @@ export const getUserOverallDetails = async (req, res) => {
           rank: user.rank || "Bronze",
         },
 
-        // KYC Info
+        
         kycInfo: {
           status: kyc?.kycStatus || "Not Submitted",
           submittedAt: kyc?.createdAt || null,
@@ -1213,7 +1210,7 @@ export const getUserOverallDetails = async (req, res) => {
           idNumber: kyc?.idNumber || "",
         },
 
-        // Financial Summary
+      
         financialSummary: {
           totalInvestment: totalInvestment,
           totalDeposit: totalDeposit[0]?.total || 0,
@@ -1223,7 +1220,7 @@ export const getUserOverallDetails = async (req, res) => {
           totalEarned: user.totalEarned || 0,
         },
 
-        // Plans
+        
         plans: plans.map((p) => ({
           name: p.name,
           amount: p.amount,
@@ -1231,7 +1228,7 @@ export const getUserOverallDetails = async (req, res) => {
           status: p.status || "active",
         })),
 
-        // Referral Stats
+      
         referralStats: {
           totalReferrals:
             (user.activeReferralCount || 0) + (user.pendingReferralCount || 0),
@@ -1241,7 +1238,7 @@ export const getUserOverallDetails = async (req, res) => {
           totalReferralEarnings: user.totalReferralEarnings || 0,
         },
 
-        // Recent Transactions (last 10)
+        
         recentTransactions: recentTransactions.map((t) => ({
           type: t.type,
           walletType: t.walletType,
@@ -1251,7 +1248,7 @@ export const getUserOverallDetails = async (req, res) => {
           date: t.createdAt,
         })),
 
-        // Recent Commissions (last 10)
+        
         recentCommissions: recentCommissions.map((c) => ({
           type: c.type,
           amount: c.amount,
@@ -1261,7 +1258,7 @@ export const getUserOverallDetails = async (req, res) => {
           date: c.createdAt,
         })),
 
-        // Account Timeline
+      
         accountTimeline: {
           registeredAt: user.createdAt,
           lastActive: user.updatedAt,
@@ -1291,7 +1288,7 @@ export const checkUserLogin = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    // Check if user has valid token
+    
     let isLoggedIn = false;
 
     if (user.token && user.token !== "") {
@@ -1331,7 +1328,7 @@ export const getUserDownlineManagement = async (req, res) => {
       });
     }
 
-    // Search user by name, email, or rank
+    
     const user = await User.findOne({
       $or: [
         { name: { $regex: search, $options: "i" } },
@@ -1346,16 +1343,16 @@ export const getUserDownlineManagement = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    // Calculate total investment
+  
     const totalInvestment =
       user.plans?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
 
-    // Get direct downline count
+    
     const directDownline = await User.countDocuments({
       parentUnilevel: user._id,
     });
 
-    // Get total downline count (all trees)
+  
     const binaryDownline = await User.countDocuments({ parent: user._id });
     const matrixDownline = await User.countDocuments({
       parentMatrix: user._id,
@@ -1365,7 +1362,7 @@ export const getUserDownlineManagement = async (req, res) => {
     });
     const totalDownline = binaryDownline + matrixDownline + unilevelDownline;
 
-    // Get complete downline structure
+  
     const downlineStructure = await getCompleteDownline(
       user._id,
       parseInt(level),
@@ -1374,7 +1371,7 @@ export const getUserDownlineManagement = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        // User Details
+        
         userDetails: {
           id: user._id,
           name: user.name,
@@ -1387,7 +1384,7 @@ export const getUserDownlineManagement = async (req, res) => {
           isActive: user.isActive,
           joinDate: user.createdAt,
         },
-        // Downline Structure
+        
         downlineStructure: downlineStructure,
       },
     });
@@ -1397,7 +1394,7 @@ export const getUserDownlineManagement = async (req, res) => {
   }
 };
 
-// ================= GET COMPLETE DOWNLINE STRUCTURE =================
+// ================= GET COMPLETE DOWNLINE==============================
 async function getCompleteDownline(userId, maxLevel) {
   const result = {
     binary: [],
@@ -1405,7 +1402,7 @@ async function getCompleteDownline(userId, maxLevel) {
     unilevel: [],
   };
 
-  // Binary downline
+  
   const binaryQueue = [{ id: userId, level: 0 }];
   while (binaryQueue.length) {
     const { id, level } = binaryQueue.shift();
@@ -1453,7 +1450,7 @@ async function getCompleteDownline(userId, maxLevel) {
     }
   }
 
-  // Matrix downline
+
   const matrixQueue = [{ id: userId, level: 0 }];
   while (matrixQueue.length) {
     const { id, level } = matrixQueue.shift();
@@ -1491,7 +1488,7 @@ async function getCompleteDownline(userId, maxLevel) {
     }
   }
 
-  // Unilevel downline
+  
   const unilevelQueue = [{ id: userId, level: 0 }];
   while (unilevelQueue.length) {
     const { id, level } = unilevelQueue.shift();
@@ -1565,7 +1562,7 @@ export const getAllReferralsHistory = async (req, res) => {
       }
     }
 
-    // Search filter
+    
     if (search) {
       allReferrals = allReferrals.filter(
         (r) =>
@@ -1577,7 +1574,7 @@ export const getAllReferralsHistory = async (req, res) => {
       );
     }
 
-    // Status filter
+    
     if (status === "approved") {
       allReferrals = allReferrals.filter((r) => r.status === "approved");
     } else if (status === "pending") {
@@ -1607,7 +1604,7 @@ export const getReferralDetails = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Get the user (referrer)
+  
     const user = await User.findById(userId);
     if (!user) {
       return res
@@ -1631,7 +1628,7 @@ export const getReferralDetails = async (req, res) => {
       });
     }
 
-    // Get all referral details
+    
     const referralDetailsList = await Promise.all(
       referrals.map(async (ref) => {
         const referredUser = await User.findById(ref.user).select(
@@ -1639,10 +1636,9 @@ export const getReferralDetails = async (req, res) => {
         );
         if (!referredUser) return null;
 
-        // Calculate level (you can implement level logic here)
+        
         let level = "Direct";
-        // If you have level tracking, you can calculate like this:
-        // level = await getReferralLevel(user._id, referredUser._id);
+        
 
         const bonusAmount = (ref.amountInvested * 5) / 100;
 
@@ -1663,7 +1659,7 @@ export const getReferralDetails = async (req, res) => {
       }),
     );
 
-    // Filter out null values
+    
     const validReferrals = referralDetailsList.filter((r) => r !== null);
 
     res.status(200).json({
@@ -1714,7 +1710,7 @@ export const getUnilevelConfig = async (req, res) => {
     let config = await UnilevelConfig.findOne();
     
     if (!config) {
-      // Default config
+      
       config = await UnilevelConfig.create({
         levelDepth: 10,
         sponsorIncome: 5,
@@ -2002,7 +1998,7 @@ export const getAllCommissions = async (req, res) => {
     
     const totalCommissions = await Commission.countDocuments(filter);
     
-    // Stats
+    
     const stats = {
       total: await Commission.countDocuments(),
       totalAmount: await Commission.aggregate([
@@ -2138,7 +2134,7 @@ export const getIncome = async (req, res) => {
 };
 
 
-// ================= 1. GET  USERS WALLET  =================
+// =================  GET  USERS WALLET  =================
 export const getAllWallets = async (req, res) => {
   try {
     const { search, page = 1, limit = 20 } = req.query;
@@ -2163,7 +2159,7 @@ export const getAllWallets = async (req, res) => {
     
     const totalUsers = await User.countDocuments(userFilter);
     
-    // ================= WALLET SUMMARY (ARRAY 1) =================
+    // ================= WALLET SUMMARY  =================
     const walletSummary = await Promise.all(users.map(async (user) => {
       let wallet = await Wallet.findOne({ user: user._id });
       
@@ -2181,7 +2177,7 @@ export const getAllWallets = async (req, res) => {
       };
     }));
     
-    // ================= WALLET HISTORY (ARRAY 2) =================
+    // ================= WALLET HISTORY =================
     const allTransactions = [];
     for (const user of users) {
       const transactions = await Transaction.find({ user: user._id })
@@ -2239,13 +2235,13 @@ export const getWithdrawal = async (req, res) => {
   try {
     const { search, page = 1, limit = 20 } = req.query;
     
-    // Get all withdrawals
+  
     let filter = {};
     let withdrawals = await Withdrawal.find(filter)
       .sort({ createdAt: -1 })
       .populate("user", "name email");
     
-    // Search filter
+  
     if (search) {
       withdrawals = withdrawals.filter(w => 
         w.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -2261,7 +2257,7 @@ export const getWithdrawal = async (req, res) => {
     const totalRejected = withdrawals.filter(w => w.status === "rejected").length;
     const totalRequest = withdrawals.length;
     
-    // Total amounts
+    
     const totalPendingAmount = withdrawals
       .filter(w => w.status === "pending")
       .reduce((sum, w) => sum + w.amount, 0);
@@ -2272,14 +2268,14 @@ export const getWithdrawal = async (req, res) => {
       .filter(w => w.status === "rejected")
       .reduce((sum, w) => sum + w.amount, 0);
     
-    // ================= 2. WITHDRAWAL TRENDING =================
+    
     const trending = {
       approved: totalApproved,
       pending: totalPending,
       rejected: totalRejected
     };
     
-    // ================= 3. STATUS DURATION (PERCENTAGE) =================
+  
     const total = totalRequest || 1;
     const statusPercentage = {
       pending: ((totalPending / total) * 100).toFixed(1),
@@ -2287,7 +2283,7 @@ export const getWithdrawal = async (req, res) => {
       rejected: ((totalRejected / total) * 100).toFixed(1)
     };
     
-    // ================= 4. HISTORY (PAGINATED) =================
+    
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const paginatedWithdrawals = withdrawals.slice(skip, skip + parseInt(limit));
     
@@ -2306,18 +2302,18 @@ export const getWithdrawal = async (req, res) => {
     
     res.status(200).json({
       success: true,
-      // 1. Withdrawal Report
+      
       report: {
         totalPending: { count: totalPending, amount: totalPendingAmount },
         totalApproved: { count: totalApproved, amount: totalApprovedAmount },
         totalRejected: { count: totalRejected, amount: totalRejectedAmount },
         totalRequest: { count: totalRequest, amount: totalPendingAmount + totalApprovedAmount + totalRejectedAmount }
       },
-      // 2. Withdrawal Trending
+      
       trending: trending,
-      // 3. Status Duration (Percentage)
+      
       statusPercentage: statusPercentage,
-      // 4. History
+  
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(totalRequest / parseInt(limit)),

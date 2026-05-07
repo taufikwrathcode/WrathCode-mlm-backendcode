@@ -13,7 +13,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Helper: Convert file to Base64
+// Convert file to Base64
 const getBase64Image = (filePath) => {
   try {
     if (!filePath) return null;
@@ -83,7 +83,7 @@ export const getAllKYC = async (req, res) => {
   }
 };
 
-// ================= GET SINGLE KYC DETAILS (BASE64 IMAGES) =================
+// ================= GET SINGLE KYC DETAILS  =================
 export const getKYCDetails = async (req, res) => {
   try {
     const { id } = req.params;
@@ -259,20 +259,19 @@ export const editReferral = async (req, res) => {
     const { userId } = req.params;
     const { status, bonusAmount } = req.body;
 
-    // Find user by ID
+    
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // Get all referrals of this user
+    
     const referrals = user.referredUsers || [];
     if (referrals.length === 0) {
       return res.status(404).json({ success: false, message: "No referrals found for this user" });
     }
 
-    // Update all referrals? Or first one? 
-    // Aapke requirement ke hisaab se - user ke saare referrals update honge
+    
     let updatedCount = 0;
     let totalBonusDiff = 0;
 
@@ -280,13 +279,13 @@ export const editReferral = async (req, res) => {
       let oldStatus = referral.hasInvested;
       let oldBonus = (referral.amountInvested * 5) / 100;
 
-      // Update status
+    
       if (status === "approved" && oldStatus === false) {
         referral.hasInvested = true;
         referral.investedAt = new Date();
         updatedCount++;
         
-        // Update referred user's active status
+  
         await User.findByIdAndUpdate(referral.user, { isActive: true });
       } else if (status === "pending" && oldStatus === true) {
         referral.hasInvested = false;
@@ -296,14 +295,14 @@ export const editReferral = async (req, res) => {
         updatedCount++;
       }
 
-      // Update bonus amount
+    
       if (bonusAmount !== undefined && bonusAmount !== oldBonus) {
         const bonusDiff = bonusAmount - oldBonus;
         totalBonusDiff += bonusDiff;
       }
     }
 
-    // Update total referral earnings
+    
     if (totalBonusDiff !== 0) {
       user.totalReferralEarnings = (user.totalReferralEarnings || 0) + totalBonusDiff;
     }
@@ -354,7 +353,7 @@ export const updateWithdrawalStatus = async (req, res) => {
     if (status === "approved") {
       const user = withdrawal.user;
       
-      // Check balance again
+      
       if (user.wallet < withdrawal.amount) {
         return res.status(400).json({ 
           success: false, 
@@ -362,11 +361,11 @@ export const updateWithdrawalStatus = async (req, res) => {
         });
       }
       
-      // Deduct from wallet
+
       user.wallet -= withdrawal.amount;
       await user.save();
       
-      // Add transaction record
+      
       await addTransaction({
         userId: user._id,
         type: "debit",
@@ -379,7 +378,7 @@ export const updateWithdrawalStatus = async (req, res) => {
       withdrawal.status = "approved";
       withdrawal.processedAt = new Date();
       withdrawal.adminRemark = adminRemark || "Approved by admin";
-      // ✅ Transaction ID already exists, DO NOT generate new one
+      
       
     } else if (status === "rejected") {
       withdrawal.status = "rejected";
@@ -396,7 +395,7 @@ export const updateWithdrawalStatus = async (req, res) => {
         withdrawalId: withdrawal._id,
         userName: withdrawal.user?.name,
         amount: withdrawal.amount,
-        transactionId: withdrawal.transactionId,  // ✅ Show existing ID
+        transactionId: withdrawal.transactionId,  
         status: withdrawal.status,
         adminRemark: withdrawal.adminRemark,
         processedAt: withdrawal.processedAt

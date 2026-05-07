@@ -9,13 +9,13 @@ import {
   processUPIPayout 
 } from "../Utils/razorpayPayout.js";
 
-// ================= USER: REQUEST WITHDRAWAL (WITH TRANSACTION ID) =================
+// ================= USER: REQUEST WITHDRAWAL  =================
 export const requestWithdrawal = async (req, res) => {
   try {
     const userId = req.user._id;
     const { amount, method, paymentDetails } = req.body;
 
-    // KYC Check
+    
     const isKYC = await checkKYCApproved(userId);
     if (!isKYC) {
       return res.status(400).json({ 
@@ -24,7 +24,7 @@ export const requestWithdrawal = async (req, res) => {
       });
     }
 
-    // Amount validation
+    
     if (!amount || amount < 100) {
       return res.status(400).json({ 
         success: false, 
@@ -32,7 +32,7 @@ export const requestWithdrawal = async (req, res) => {
       });
     }
 
-    // Method validation
+    
     const validMethods = ["bank", "upi", "crypto"];
     if (!method || !validMethods.includes(method)) {
       return res.status(400).json({ 
@@ -41,7 +41,7 @@ export const requestWithdrawal = async (req, res) => {
       });
     }
 
-    // Payment details validation
+  
     if (method === "bank") {
       if (!paymentDetails?.bank?.accountNumber || 
           !paymentDetails?.bank?.ifscCode || 
@@ -67,7 +67,7 @@ export const requestWithdrawal = async (req, res) => {
       }
     }
 
-    // Balance check
+    
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
@@ -81,14 +81,14 @@ export const requestWithdrawal = async (req, res) => {
       });
     }
 
-    // Calculate tax (10% TDS)
+    
     const taxAmount = (amount * 10) / 100;
     const finalAmount = amount - taxAmount;
 
-    // ✅ Generate Transaction ID immediately
+    
     const transactionId = `WD${Date.now()}${userId.toString().slice(-6)}`;
 
-    // Create withdrawal request
+    
     const withdrawal = await Withdrawal.create({
       user: userId,
       amount,
@@ -98,7 +98,7 @@ export const requestWithdrawal = async (req, res) => {
       paymentDetails,
       status: "pending",
       referenceId: `WD_${Date.now()}_${userId.toString().slice(-6)}`,
-      transactionId: transactionId  // ✅ Set immediately
+      transactionId: transactionId  
     });
 
     res.status(200).json({
@@ -107,7 +107,7 @@ export const requestWithdrawal = async (req, res) => {
       data: {
         withdrawalId: withdrawal._id,
         referenceId: withdrawal.referenceId,
-        transactionId: transactionId,  // ✅ Show in response
+        transactionId: transactionId,  
         amount: withdrawal.amount,
         taxAmount: withdrawal.taxAmount,
         finalAmount: withdrawal.finalAmount,
@@ -123,7 +123,7 @@ export const requestWithdrawal = async (req, res) => {
   }
 };
 
-// ================= USER: GET WITHDRAWAL HISTORY (WITH TRANSACTION ID) =================
+// ================= USER: GET WITHDRAWAL HISTORY =================
 export const getWithdrawalHistory = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -146,7 +146,7 @@ export const getWithdrawalHistory = async (req, res) => {
       netAmount: item.finalAmount,
       status: item.status,
       paymentMethod: item.method,
-      transactionId: item.transactionId  // ✅ Added
+      transactionId: item.transactionId  
     }));
 
     return res.status(200).json({

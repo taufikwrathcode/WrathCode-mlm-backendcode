@@ -4,7 +4,7 @@ import { addTransaction } from "./wallet.js";
 import { checkRank } from "./RANK.js";
 
 export const distributeMatrixIncome = async (user, amount) => {
-  // Read config from database
+
   let config = await MatrixConfig.findOne();
   if (!config) {
     config = {

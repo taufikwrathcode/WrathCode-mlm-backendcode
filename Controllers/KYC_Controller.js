@@ -14,7 +14,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Helper: Convert file to Base64
+// Convert file to Base64
 const getBase64Image = (filePath) => {
   try {
     if (!filePath) return null;
@@ -68,7 +68,7 @@ export const submitKYC = async (req, res) => {
       return res.status(400).json({ message: "Invalid PAN" });
     }
 
-    // Save text data
+    
     kyc.fullName = fullName || kyc.fullName;
     kyc.dateOfBirth = dateOfBirth || kyc.dateOfBirth;
     kyc.address = address || kyc.address;
@@ -81,7 +81,7 @@ export const submitKYC = async (req, res) => {
     kyc.idNumber = idNumber || kyc.idNumber;
     kyc.idName = idName || kyc.idName;
 
-    // File upload
+    
     if (files.frontImage) kyc.frontImage = files.frontImage[0].filename;
     if (files.backImage) kyc.backImage = files.backImage[0].filename;
     if (files.selfiewithidnumber) kyc.selfiewithidnumber = files.selfiewithidnumber[0].filename;
@@ -175,74 +175,4 @@ export const getMyKYC = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-// export const submitKYC = async (req, res) => {
-//   try {
- 
-//     console.log("BODY =>", req.body);
-//     console.log("FILES =>", req.files);
- 
-//     // =========================
-//     // FILES
-//     // =========================
- 
-//     const frontImage =
-//       req.files?.frontImage?.[0]?.filename || "";
- 
-//     const backImage =
-//       req.files?.backImage?.[0]?.filename || "";
- 
-//     const selfiewithidnumber =
-//       req.files?.selfiewithidnumber?.[0]?.filename || "";
- 
-//     const addressImage =
-//       req.files?.addressImage?.[0]?.filename || "";
- 
-//     // =========================
-//     // CREATE DATA
-//     // =========================
- 
-//     const kycData = {
-//       userId: req.user.id,
- 
-//       fullName: req.body.fullName,
-//       dateOfBirth: req.body.dateOfBirth,
-//       address: req.body.address,
-//       city: req.body.city,
-//       state: req.body.state,
-//       country: req.body.country,
-//       pincode: req.body.pincode,
-//       phoneNumber: req.body.phoneNumber,
-//       idType: req.body.idType,
-//       idNumber: req.body.idNumber,
- 
-//       // ✅ SAVE IMAGES
-//       frontImage,
-//       backImage,
-//       selfiewithidnumber,
-//       addressImage,
- 
-//       kycStatus: "Pending",
-//     };
- 
-//     console.log("FINAL DATA =>", kycData);
- 
-//     const kyc = await KYC.create(kycData);
-//     console.log("KYC created:", kyc); 
- 
-//     return res.status(200).json({
-//       success: true,
-//       message: "KYC updated successfully",
-//       data: kyc,
-//     });
- 
-//   } catch (error) {
-//     console.log(error);
- 
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
 

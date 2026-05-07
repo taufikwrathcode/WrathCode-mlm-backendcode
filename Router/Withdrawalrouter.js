@@ -5,7 +5,7 @@ import { Userprotect } from "../middleware/MIddlewares.js";
 
 const router = Router();
 
-//post request withdrawal
+
 
 router.post("/amount",Userprotect,requestWithdrawal);
 

@@ -43,24 +43,24 @@ export const giveReferralBonus = async (sponsorId, userId, investmentAmount, pla
 
 export const activateReferralAndGiveBonus = async (sponsorId, userId, planName, investmentAmount) => {
   try {
-    console.log("🔵 activateReferralAndGiveBonus START");
+    console.log(" activateReferralAndGiveBonus START");
     console.log("sponsorId:", sponsorId);
     console.log("userId:", userId);
     
     const sponsor = await User.findById(sponsorId);
     if (!sponsor) {
-      console.log("❌ Sponsor NOT found");
+      console.log(" Sponsor NOT found");
       return { success: false, message: "Sponsor not found" };
     }
     
-    console.log("✅ Sponsor found:", sponsor.name);
+    console.log("Sponsor found:", sponsor.name);
     console.log("Sponsor pendingReferralCount before:", sponsor.pendingReferralCount);
     console.log("Sponsor activeReferralCount before:", sponsor.activeReferralCount);
     
-    // ✅ CRITICAL FIX: Convert both IDs to string for comparison
+    
     const userIdStr = userId.toString();
     
-    // Find the referral in referredUsers array
+  
     let referralIndex = -1;
     let referral = null;
     
@@ -75,9 +75,9 @@ export const activateReferralAndGiveBonus = async (sponsorId, userId, planName, 
     
     console.log("referralIndex:", referralIndex);
     
-    // ✅ FIX: If not found, create new entry
+    
     if (referralIndex === -1) {
-      console.log("❌ Referral NOT found in array! Creating new entry...");
+      console.log(" Referral NOT found in array! Creating new entry...");
       
       sponsor.referredUsers.push({
         user: userId,
@@ -94,7 +94,7 @@ export const activateReferralAndGiveBonus = async (sponsorId, userId, planName, 
       sponsor.activeReferralCount = (sponsor.activeReferralCount || 0) + 1;
       
       await sponsor.save();
-      console.log("✅ New referral entry created successfully");
+      console.log(" New referral entry created successfully");
       
       // Give bonus
       const bonusResult = await giveReferralBonus(sponsorId, userId, investmentAmount, planName);
@@ -127,13 +127,13 @@ export const activateReferralAndGiveBonus = async (sponsorId, userId, planName, 
     console.log("Sponsor activeReferralCount after:", sponsor.activeReferralCount);
     
     await sponsor.save();
-    console.log("✅ Sponsor saved successfully!");
+    console.log(" Sponsor saved successfully!");
     
     // Give bonus
     const bonusResult = await giveReferralBonus(sponsorId, userId, investmentAmount, planName);
     
     console.log("Bonus Result:", bonusResult);
-    console.log("🔵 activateReferralAndGiveBonus END");
+    console.log(" activateReferralAndGiveBonus END");
     
     return {
       success: true,
@@ -142,7 +142,7 @@ export const activateReferralAndGiveBonus = async (sponsorId, userId, planName, 
     };
     
   } catch (error) {
-    console.error("❌ Activate Referral Error:", error.message);
+    console.error(" Activate Referral Error:", error.message);
     return { success: false, message: error.message };
   }
 };

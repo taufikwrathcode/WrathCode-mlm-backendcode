@@ -86,7 +86,7 @@ export const getMatrixTree = async (req, res) => {
 
       if (!member) return null;
 
-      // Calculate user's total investment
+      
       const userInvestment = member.plans?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
 
       let leftNode = null, midNode = null, rightNode = null;

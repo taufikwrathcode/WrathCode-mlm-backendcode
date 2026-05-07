@@ -13,13 +13,13 @@ export const topCurrencies = [
   { code: "BRL", symbol: "R$" }
 ];
 
-// Live currency conversion
+
 export const convertCurrency = async (from = "USD", to = "INR", amount = 1) => {
   try {
     from = from.toUpperCase();
     to = to.toUpperCase();
 
-//
+
    if (from === to) {
       const currency = topCurrencies.find(c => c.code === to);
       return {

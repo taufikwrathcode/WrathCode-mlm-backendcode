@@ -24,15 +24,14 @@ const countDownlines = async (userId) => {
     
   };
 
-  // Count direct downlines
   for (let childId of user.downlines || []) {
     const child = await User.findById(childId);
     if (!child) continue;
 
-    // Add child's rank
+  
     stats[child.rank.toLowerCase()] += 1;
 
-    // Recursively add child's downline ranks
+    
     const childStats = await countDownlines(child._id);
     for (let key in childStats) {
       stats[key] += childStats[key];

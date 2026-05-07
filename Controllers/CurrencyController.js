@@ -1,4 +1,4 @@
-// controllers/currencyController.js
+
 import { CurrencyConvert } from "../models/currencyConvert.js";
 import{convertCurrency} from "../Utils/currency.js";
 
@@ -24,7 +24,7 @@ export const getUserCurrency = async (req, res) => {
       });
       await userCurrency.save();
     } else {
-      // Update currency & amount if changed
+      
       if (userCurrency.toCurrency !== targetCurrency || userCurrency.amount !== amountToConvert) {
         userCurrency.toCurrency = targetCurrency;
         userCurrency.amount = amountToConvert;

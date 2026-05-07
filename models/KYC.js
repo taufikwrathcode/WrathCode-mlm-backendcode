@@ -9,7 +9,6 @@ const KYCSchema = new mongoose.Schema(
       required: true,
     },
 
-    // ================= PERSONAL INFO =================
     fullName: String,
     dateOfBirth: Date,
     address: String,
@@ -19,7 +18,6 @@ const KYCSchema = new mongoose.Schema(
     pincode: String,
     phoneNumber: String,
 
-    // ================= ID INFO =================
     idType: {
       type: String,
       enum: ["Aadhaar", "PAN", "Passport", "VoterID", "Driver_License"],
@@ -29,11 +27,9 @@ const KYCSchema = new mongoose.Schema(
     frontImage: String,
     backImage: String,
 
-    // ================= SELFIE =================
     selfiewithidnumber: String,
     addressImage: String,
 
-    // ================= STATUS =================
     kycStatus: {
       type: String,
       enum: ["Pending", "Approved", "Rejected"],
@@ -50,7 +46,7 @@ const KYCSchema = new mongoose.Schema(
       default: false,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export const KYC = mongoose.model("KYC", KYCSchema);

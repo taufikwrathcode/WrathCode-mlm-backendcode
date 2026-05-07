@@ -1,13 +1,8 @@
 import jwt from "jsonwebtoken";
 import { Admin } from "../models/Admin.js";
-import { User } from "../models/User.js"; 
+import { User } from "../models/User.js";
 import { KYC } from "../models/KYC.js";
 
-
-
-
-
-// Admin protect middleware
 export const Userprotect = async (req, res, next) => {
   try {
     let token;
@@ -30,7 +25,6 @@ export const Userprotect = async (req, res, next) => {
 
     console.log("Decoded Token:", decoded);
 
-    // FIX HERE (id not _id)
     const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
@@ -42,7 +36,6 @@ export const Userprotect = async (req, res, next) => {
 
     req.user = user;
     next();
-
   } catch (error) {
     return res.status(401).json({
       success: false,
@@ -52,7 +45,6 @@ export const Userprotect = async (req, res, next) => {
 };
 
 //Users token validation
-
 
 export const adminProtect = async (req, res, next) => {
   try {
@@ -76,7 +68,6 @@ export const adminProtect = async (req, res, next) => {
 
     req.admin = admin;
     next();
-
   } catch (error) {
     return res.status(401).json({ message: "Invalid token" });
   }
@@ -85,9 +76,9 @@ export const adminProtect = async (req, res, next) => {
 export const checkKYC = async (req, res, next) => {
   const kyc = await KYC.findOne({ userId: req.user._id });
 
- if (!kyc || kyc.kycStatus !== "Approved") {
-  return res.status(403).json({
-    message: "KYC not approved"
-  });
-}
+  if (!kyc || kyc.kycStatus !== "Approved") {
+    return res.status(403).json({
+      message: "KYC not approved",
+    });
+  }
 };
