@@ -351,36 +351,32 @@ export const updateWithdrawalStatus = async (req, res) => {
     }
     
     if (status === "approved") {
-      const user = withdrawal.user;
-      
-      
-      if (user.wallet < withdrawal.amount) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Insufficient balance in user wallet" 
-        });
-      }
-      
-
-      user.wallet -= withdrawal.amount;
-      await user.save();
-      
-      
-      await addTransaction({
-        userId: user._id,
-        type: "debit",
-        walletType: "main",
-        amount: withdrawal.amount,
-        description: `Withdrawal approved - ${withdrawal.method} - ID: ${withdrawal.transactionId}`,
-        status: "paid"
-      });
+      // ✅ NO SECOND DEDUCTION HERE! 
+      // (Money was already deducted during requestWithdrawal)
       
       withdrawal.status = "approved";
       withdrawal.processedAt = new Date();
       withdrawal.adminRemark = adminRemark || "Approved by admin";
+
       
       
     } else if (status === "rejected") {
+      const user = withdrawal.user;
+      
+  
+      user.wallet += withdrawal.amount;
+      await user.save();
+
+      // Record Refund Transaction
+      await addTransaction({
+        userId: user._id,
+        type: "credit",
+        walletType: "main",
+        amount: withdrawal.amount,
+        description: `Withdrawal Refunded (Ref: ${withdrawal.referenceId})`,
+        status: "paid"
+      });
+
       withdrawal.status = "rejected";
       withdrawal.processedAt = new Date();
       withdrawal.adminRemark = adminRemark || "Rejected by admin";

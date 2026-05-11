@@ -1,5 +1,6 @@
 import { User } from "../models/User.js";
 import { addTransaction } from "./wallet.js";
+import { checkRank } from "./RANK.js";
 
 export const LEVEL_PERCENT = [10, 5, 4, 3, 2, 1.5, 1];
 
@@ -35,6 +36,9 @@ export const distributeLevelIncome = async (user, amount, planName = "General") 
       parent.totalEarned = (parent.totalEarned || 0) + income;
       await parent.save();
     }
+
+    
+    await checkRank(parent._id);
 
     current = parent;
     level++;

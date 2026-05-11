@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { Userprotect } from "../middleware/MIddlewares.js";
+import { Userprotect, adminProtect } from "../middleware/MIddlewares.js";
 import {
   getInvestment,
   buyPlan,
@@ -8,11 +8,10 @@ import {
   verifyRazorpayPayment,
   initializeBankTransfer,
   verifyBankTransfer,
-  initializeOfflinePayment,
+  approveBankTransferPayment,
 } from "../Controllers/InvesmentController.js";
 
 const router = Router();
-
 
 // Get available payment methods and bank details
 router.get("/methods", Userprotect, getPaymentMethods);
@@ -25,13 +24,17 @@ router.post("/razorpay/verify", Userprotect, verifyRazorpayPayment);
 router.post("/bank/initialize", Userprotect, initializeBankTransfer);
 router.post("/bank/verify", Userprotect, verifyBankTransfer);
 
-// Offline Payment Flow
-router.post("/offline", Userprotect, initializeOfflinePayment);
-
 // Direct Wallet Payment
 router.post("/buy", Userprotect, buyPlan);
 // Get investment history
 router.get("/history/investment", Userprotect, getInvestment);
 
+// ==================== ADMIN ROUTES ====================
+// Admin: Approve Bank Transfer Payment
+router.post(
+  "/admin/approve/bank-transfer",
+  adminProtect,
+  approveBankTransferPayment,
+);
 
 export const InvestmentRouter = router;

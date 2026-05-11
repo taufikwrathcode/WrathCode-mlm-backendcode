@@ -88,7 +88,7 @@ export const sendKYCApprovalEmail = async (user) => {
     const mailOptions = {
       from: process.env.EMAIL_USER || "noreply@mlmnetwork.com",
       to: user.email,
-      subject: "✅ Your KYC is Approved! Ready to Buy Plans",
+      subject: "Your KYC is Approved! Ready to Buy Plans",
       html: `
         <!DOCTYPE html>
         <html>
@@ -139,7 +139,7 @@ export const sendKYCApprovalEmail = async (user) => {
               <ul>
                 <li>💵 Wallet (Instant)</li>
                 <li>🏦 Razorpay (UPI/Bank)</li>
-                <li>🏢 Offline (Cheque/Cash)</li>
+                <li>🏦 Manual Bank Transfer</li>
               </ul>
               
               <p style="text-align: center;">
@@ -159,9 +159,9 @@ export const sendKYCApprovalEmail = async (user) => {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ KYC approval email sent to ${user.email}`);
+    console.log(` KYC approval email sent to ${user.email}`);
   } catch (error) {
-    console.error("❌ KYC approval email error:", error);
+    console.error(" KYC approval email error:", error);
   }
 };
 
@@ -204,7 +204,7 @@ export const sendPlanActivationEmail = async (
               <p>Dear <strong>${user.name}</strong>,</p>
               
               <div class="activation-box">
-                <h3>✅ Congratulations!</h3>
+                <h3>Congratulations!</h3>
                 <p>Your <strong>${plan}</strong> plan has been activated successfully!</p>
               </div>
               
@@ -258,9 +258,9 @@ export const sendPlanActivationEmail = async (
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Plan activation email sent to ${user.email}`);
+    console.log(`Plan activation email sent to ${user.email}`);
   } catch (error) {
-    console.error("❌ Plan activation email error:", error);
+    console.error(" Plan activation email error:", error);
   }
 };
 
@@ -331,121 +331,13 @@ export const sendPaymentRejectionEmail = async (user, plan, reason) => {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Payment rejection email sent to ${user.email}`);
+    console.log(`Payment rejection email sent to ${user.email}`);
   } catch (error) {
-    console.error("❌ Payment rejection email error:", error);
+    console.error(" Payment rejection email error:", error);
   }
 };
 
-// ================== OFFLINE PAYMENT INITIALIZATION EMAIL ==================
-export const sendOfflinePaymentEmail = async (
-  user,
-  plan,
-  amount,
-  referenceId,
-) => {
-  try {
-    const mailOptions = {
-      from: process.env.EMAIL_USER || "noreply@mlmnetwork.com",
-      to: user.email,
-      subject: `📋 Your ${plan} Plan - Offline Payment Instructions (Ref: ${referenceId})`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9; }
-            .header { background: #ff9800; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-            .content { background: white; padding: 30px; }
-            .instruction-box { background: #fff3cd; border-left: 4px solid #ff9800; padding: 15px; margin: 20px 0; }
-            .reference-id { font-size: 24px; font-weight: bold; color: #ff9800; background: white; padding: 15px; border-radius: 5px; text-align: center; }
-            .payment-details { background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 5px; }
-            .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e0e0e0; }
-            .button { background: #ff9800; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; }
-            .payment-option { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 15px 0; }
-            .footer { background: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #999; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>📋 Offline Payment Instructions</h1>
-            </div>
-            
-            <div class="content">
-              <p>Dear <strong>${user.name}</strong>,</p>
-              
-              <div class="instruction-box">
-                <h3>⚠️ Important: Save this Reference ID</h3>
-                <p class="reference-id">${referenceId}</p>
-                <p style="color: #666; text-align: center;">Use this ID for all payment communications</p>
-              </div>
-              
-              <h3>💰 Payment Details:</h3>
-              <div class="payment-details">
-                <div class="detail-row">
-                  <span><strong>Plan:</strong></span>
-                  <span>${plan}</span>
-                </div>
-                <div class="detail-row">
-                  <span><strong>Amount:</strong></span>
-                  <span><strong>₹${amount}</strong></span>
-                </div>
-                <div class="detail-row">
-                  <span><strong>Reference ID:</strong></span>
-                  <span><strong>${referenceId}</strong></span>
-                </div>
-              </div>
-              
-              <h3>📍 Payment Methods:</h3>
-              
-              <div class="payment-option">
-                <h4>💵 Option 1: Cash at Office</h4>
-                <p>📱 Contact: <strong>${process.env.OFFICE_PHONE}</strong></p>
-                <p>📍 Address: <strong>${process.env.OFFICE_ADDRESS}</strong></p>
-                <p>Bring this Reference ID: <strong>${referenceId}</strong></p>
-              </div>
-              
-              <div class="payment-option">
-                <h4>🏦 Option 2: Cheque Transfer</h4>
-                <p>Make cheque in favor of: <strong>MLM Network India Pvt Ltd</strong></p>
-                <p>📍 Send to: <strong>${process.env.OFFICE_ADDRESS}</strong></p>
-                <p>Write Reference ID on cheque: <strong>${referenceId}</strong></p>
-              </div>
-              
-              <h3>✅ Next Steps:</h3>
-              <ol>
-                <li>Complete payment using one of the methods above</li>
-                <li>Keep your payment proof (receipt/screenshot)</li>
-                <li>Contact admin with Reference ID and payment proof</li>
-                <li>Admin will verify and activate your plan</li>
-                <li>You'll receive confirmation email with Referral Code</li>
-              </ol>
-              
-              <h3>📞 Need Help?</h3>
-              <p>Contact us at: <strong>${process.env.ADMIN_EMAIL}</strong></p>
-              <p>Phone: <strong>${process.env.OFFICE_PHONE}</strong></p>
-              
-              <p>Best regards,<br><strong>MLM Network Team</strong></p>
-            </div>
-            
-            <div class="footer">
-              <p>&copy; 2024 MLM Network. All rights reserved.</p>
-              <p>This is an automated email. Please do not reply to this email.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Offline payment email sent to ${user.email}`);
-  } catch (error) {
-    console.error("❌ Offline payment email error:", error);
-  }
-};
 
 // ================== BANK TRANSFER INITIALIZATION EMAIL ==================
 export const sendBankTransferEmail = async (
@@ -533,7 +425,7 @@ export const sendBankTransferEmail = async (
                 </div>
               </div>
               
-              <h3>✅ Transfer Instructions:</h3>
+              <h3> Transfer Instructions:</h3>
               <ol>
                 <li>Use your bank app or visit your bank</li>
                 <li>Select "Transfer Funds"</li>
@@ -571,9 +463,9 @@ export const sendBankTransferEmail = async (
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Bank transfer email sent to ${user.email}`);
+    console.log(` Bank transfer email sent to ${user.email}`);
   } catch (error) {
-    console.error("❌ Bank transfer email error:", error);
+    console.error(" Bank transfer email error:", error);
   }
 };
 
@@ -677,9 +569,9 @@ export const sendRazorpayOrderEmail = async (
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Razorpay order email sent to ${user.email}`);
+    console.log(` Razorpay order email sent to ${user.email}`);
   } catch (error) {
-    console.error("❌ Razorpay order email error:", error);
+    console.error(" Razorpay order email error:", error);
   }
 };
 
@@ -701,8 +593,8 @@ export const sendContactFormEmail = async (name, email, subject, message) => {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Contact email sent from ${email}`);
+    console.log(`Contact email sent from ${email}`);
   } catch (error) {
-    console.error("❌ Contact email error:", error);
+    console.error(" Contact email error:", error);
   }
 };

@@ -5,10 +5,10 @@ import { checkKYCApproved } from "../Utils/KYC.js";
 import { Wallet } from "../models/wallet.js";
 import { RANK_PLANS } from "../Utils/RANK_PLANS.js";
 import { startROI } from "../Utils/ROI.js";
+import { getRankByInvestment, getNextRankInfo } from "../Utils/getRank.js";
 import { activateReferralAndGiveBonus } from "../Utils/referralBonus.js";
 import { distributeLevelIncome } from "../Utils/Level.js";
 import {
-  sendOfflinePaymentEmail,
   sendBankTransferEmail,
   sendRazorpayOrderEmail,
 } from "../Utils/Email.js";
@@ -20,18 +20,16 @@ import {
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
-
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "rzp_test_key",
   key_secret: process.env.RAZORPAY_SECRET || "rzp_test_secret",
 });
 
-
 const PLAN_PRICE = {
-  "Binary": 100,
-  "Matrix": 200,
-  "Unilevel": 150,
-  "basic": 100
+  Binary: 100,
+  Matrix: 200,
+  Unilevel: 150,
+  basic: 100,
 };
 
 // Bank Configuration
@@ -66,11 +64,6 @@ export const getPaymentMethods = async (req, res) => {
         id: "bank_transfer",
         name: "Manual Bank Transfer",
         description: "Direct bank account transfer",
-      },
-      {
-        id: "offline",
-        name: "Offline Payment",
-        description: "Cash or cheque payment",
       },
     ];
 
@@ -198,23 +191,28 @@ export const verifyRazorpayPayment = async (req, res) => {
 
     user.investment += amount;
     user.isActive = true;
-    user.maxEarning += amount * 2;
+
+    // Get rank based on investment amount
+    const { rank, limits } = getRankByInvestment(amount);
+    user.userRank = rank;
+    user.maxEarning =
+      (user.maxEarning || 0) + (amount + (amount * limits.roi) / 100);
+
+    // Start ROI based on rank
+    await startROI(user, amount, limits);
 
     await user.save();
 
-    
     const freshUser = await User.findById(user._id);
     const { mlmType: noteMLMType } = order.notes;
 
-    
     const planMap = {
-      "binary": "Binary",
-      "matrix": "Matrix",
-      "unilevel": "Unilevel",
-      "basic": "Binary"
+      binary: "Binary",
+      matrix: "Matrix",
+      unilevel: "Unilevel",
+      basic: "Binary",
     };
 
-    
     const normalizedMLMType = noteMLMType?.toLowerCase?.() || "";
     let finalPlanToJoin = planMap[normalizedMLMType];
 
@@ -243,7 +241,6 @@ export const initializeBankTransfer = async (req, res) => {
     const userId = req.user._id;
     const { plan } = req.body;
 
-    
     if (!PLAN_PRICE[plan]) {
       return res.status(400).json({
         success: false,
@@ -251,7 +248,6 @@ export const initializeBankTransfer = async (req, res) => {
       });
     }
 
-    
     const isKYC = await checkKYCApproved(userId);
     if (!isKYC) {
       return res.status(400).json({
@@ -268,7 +264,6 @@ export const initializeBankTransfer = async (req, res) => {
     const amount = PLAN_PRICE[plan];
     const referenceId = `REF-${userId}-${plan}-${Date.now()}`;
 
-    
     if (!user.payments) user.payments = [];
 
     user.payments.push({
@@ -282,7 +277,6 @@ export const initializeBankTransfer = async (req, res) => {
 
     await user.save();
 
-  
     await sendBankTransferEmail(user, plan, amount, referenceId, BANK_DETAILS);
 
     return res.status(200).json({
@@ -330,7 +324,6 @@ export const verifyBankTransfer = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    
     const paymentIndex = user.payments.findIndex(
       (p) => p.referenceId === referenceId,
     );
@@ -342,12 +335,10 @@ export const verifyBankTransfer = async (req, res) => {
     const payment = user.payments[paymentIndex];
     const { plan, amount } = payment;
 
-    
     payment.status = "pending_admin_verification";
     payment.transactionId = transactionId;
     payment.submittedAt = new Date();
 
-    
     user.plans.push({
       name: plan,
       amount: amount,
@@ -383,99 +374,22 @@ export const verifyBankTransfer = async (req, res) => {
   }
 };
 
-// ================== INITIALIZE OFFLINE PAYMENT ==================
-export const initializeOfflinePayment = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { plan } = req.body;
-
-    // Validate plan
-    if (!PLAN_PRICE[plan]) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid plan selected",
-      });
-    }
-
-    // KYC CHECK
-    const isKYC = await checkKYCApproved(userId);
-    if (!isKYC) {
-      return res.status(400).json({
-        success: false,
-        message: "Complete KYC approval required first",
-      });
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const amount = PLAN_PRICE[plan];
-    const referenceId = `OFFLINE-${userId}-${plan}-${Date.now()}`;
-
-    
-    if (!user.payments) user.payments = [];
-
-    user.payments.push({
-      plan: plan,
-      amount: amount,
-      paymentMethod: "offline",
-      status: "pending",
-      referenceId: referenceId,
-      initiatedAt: new Date(),
-    });
-
-    await user.save();
-
-    
-    await sendOfflinePaymentEmail(user, plan, amount, referenceId);
-
-    return res.status(200).json({
-      success: true,
-      message:
-        "Offline payment initialized. Check your email for payment instructions.",
-      paymentDetails: {
-        referenceId: referenceId,
-        amount: amount,
-        plan: plan,
-        offlinePaymentOptions: [
-          {
-            method: "Cash at Office",
-            description: "Pay cash at our office",
-            contact: process.env.OFFICE_PHONE || "9876543210",
-            address: process.env.OFFICE_ADDRESS || "MLM Network India, Delhi",
-          },
-          {
-            method: "Cheque Transfer",
-            description: "Send cheque in favor of MLM Network India Pvt Ltd",
-            address: process.env.OFFICE_ADDRESS || "MLM Network India, Delhi",
-          },
-        ],
-        instructions: [
-          `Reference ID: ${referenceId}`,
-          `Amount: ₹${amount}`,
-          `After payment, contact admin with payment proof`,
-        ],
-      },
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
 // ================== BUY PLAN WITH WALLET ==================
-
-
 
 export const buyPlan = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?._id;
     const { amount, planId, mlmType } = req.body;
-    console.log("BUY PLAN REQUEST - User:", userId, "Plan:", planId, "MLM Type:", mlmType, "Amount:", amount);
+    console.log(
+      "BUY PLAN REQUEST - User:",
+      userId,
+      "Plan:",
+      planId,
+      "MLM Type:",
+      mlmType,
+      "Amount:",
+      amount,
+    );
 
     // VALIDATION
     if (!userId) {
@@ -500,7 +414,7 @@ export const buyPlan = async (req, res) => {
       });
     }
 
-    // 1. KYC CHECK
+    //  KYC CHECK
     const isKYC = await checkKYCApproved(userId);
     if (!isKYC) {
       return res.status(400).json({
@@ -509,138 +423,122 @@ export const buyPlan = async (req, res) => {
       });
     }
 
-    
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({
+      return res.status(400).json({
         success: false,
         message: "User not found",
       });
     }
 
-  
-    const currentRank = user.rank || "Bronze";
-    const limits = RANK_PLANS[currentRank];
-
-    if (!limits) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid rank: ${currentRank}`,
-      });
-    }
-
-    if (amountNum < limits.min) {
-      return res.status(400).json({
-        success: false,
-        message: `Investment amount is below minimum for ${currentRank} rank`,
-      });
-    }
-
-    if (amountNum > limits.max) {
-      return res.status(400).json({
-        success: false,
-        message: `Investment amount exceeds maximum for ${currentRank} rank`,
-      });
-    }
-
-    
     if (user.wallet < amountNum) {
       return res.status(400).json({
         success: false,
-        message: `Insufficient wallet balance`,
+        message: `Insufficient wallet balance. Your balance: ₹${user.wallet}, Required: ₹${amountNum}`,
+        availableBalance: user.wallet,
       });
     }
 
-    
-    const planMap = {
-      "binary": "Binary",
-      "matrix": "Matrix",
-      "unilevel": "Unilevel",
-      "basic": "Binary"
-    };
+    try {
+      const { rank, limits, dailyROI, maxEarning, nextRank } =
+        getRankByInvestment(amountNum, user.userRank || null);
 
-    
-    const normalizedMLMType = mlmType?.toLowerCase?.() || "";
-    let finalPlanName = planMap[normalizedMLMType];
+      // Update user rank
+      user.userRank = rank;
 
-  
-    if (!finalPlanName) {
-      const normalizedPlanId = planId?.toLowerCase?.() || "";
-      finalPlanName = planMap[normalizedPlanId];
-    }
+      const planMap = {
+        binary: "Binary",
+        matrix: "Matrix",
+        unilevel: "Unilevel",
+        basic: "Binary",
+      };
 
-    if (!finalPlanName) {
+      const normalizedMLMType = mlmType?.toLowerCase?.() || "";
+      let finalPlanName = planMap[normalizedMLMType];
+
+      if (!finalPlanName) {
+        const normalizedPlanId = planId?.toLowerCase?.() || "";
+        finalPlanName = planMap[normalizedPlanId];
+      }
+
+      if (!finalPlanName) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid plan or MLM type selected. Valid types: Binary, Matrix, Unilevel`,
+        });
+      }
+
+      console.log(
+        `Plan requested: "${planId}" → resolved to: "${finalPlanName}"`,
+      );
+
+      // Deduct from wallet
+      user.wallet -= amountNum;
+      user.investment = (user.investment || 0) + amountNum;
+      user.isActive = true;
+      user.maxEarning = (user.maxEarning || 0) + maxEarning;
+
+      if (!user.plans) user.plans = [];
+
+      user.plans.push({
+        name: finalPlanName,
+        amount: amountNum,
+        purchaseDate: new Date(),
+        planSelected: finalPlanName,
+        investmentConfirm: true,
+        status: "active",
+        rank: rank,
+        dailyROI: dailyROI,
+      });
+
+      // Start ROI based on rank
+      await startROI(user, amountNum, limits);
+
+      await user.save();
+
+      // ================= AUTO JOIN TREE =================
+      const freshUser = await User.findById(user._id);
+
+      console.log("=== AUTO JOIN CHECK ===");
+      console.log("User Name:", freshUser.name);
+      console.log("Plan:", finalPlanName);
+      console.log("Rank:", rank);
+
+      if (finalPlanName === "Binary") {
+        await joinBinaryAuto(freshUser);
+      } else if (finalPlanName === "Matrix") {
+        await joinMatrixAuto(freshUser);
+      } else if (finalPlanName === "Unilevel") {
+        await joinUnilevelAuto(freshUser);
+      }
+
+      console.log("========== SPONSOR BONUS CHECK ==========");
+      console.log("User ID:", user._id);
+      console.log("User Name:", user.name);
+      console.log("Rank:", rank);
+
+      if (user.parentUnilevel) {
+        console.log(
+          "Calling activateReferralAndGiveBonus for sponsor:",
+          user.parentUnilevel,
+        );
+        const bonusResult = await activateReferralAndGiveBonus(
+          user.parentUnilevel,
+          user._id,
+          finalPlanName,
+          amountNum,
+        );
+        console.log("Bonus Result:", JSON.stringify(bonusResult, null, 2));
+      }
+
+      await distributeLevelIncome(user, amountNum, finalPlanName);
+    } catch (rankError) {
       return res.status(400).json({
         success: false,
-        message: `Invalid plan or MLM type selected. Valid types: Binary, Matrix, Unilevel`,
+        message: rankError.message || "Rank progression error",
       });
     }
 
-    console.log(`Plan requested: "${planId}" → resolved to: "${finalPlanName}"`);
-
-
-    user.wallet -= amountNum;
-    user.investment = (user.investment || 0) + amountNum;
-    user.isActive = true;
-    user.maxEarning = (user.maxEarning || 0) + (amountNum * limits.roi) / 100;
-
-    if (!user.plans) user.plans = [];
-
-    user.plans.push({
-      name: finalPlanName,
-      amount: amountNum,
-      purchaseDate: new Date(),
-      planSelected: finalPlanName,
-      investmentConfirm: true,
-      status: "active",
-    });
-
-    
-    await startROI(user, amountNum, limits);
-
-    await user.save();
-
-    // ================= AUTO JOIN TREE =================
-    const freshUser = await User.findById(user._id);
-
-    console.log("=== AUTO JOIN CHECK ===");
-    console.log("User Name:", freshUser.name);
-    console.log("Plan:", finalPlanName);
-    console.log("freshUser.parentUnilevel:", freshUser.parentUnilevel);
-    console.log("freshUser.parent:", freshUser.parent);
-    console.log("freshUser.parentMatrix:", freshUser.parentMatrix);
-
-    if (finalPlanName === "Binary") {
-      await joinBinaryAuto(freshUser);
-    } else if (finalPlanName === "Matrix") {
-      await joinMatrixAuto(freshUser);
-    } else if (finalPlanName === "Unilevel") {
-      await joinUnilevelAuto(freshUser);
-    }
-
-    
-    console.log("========== SPONSOR BONUS CHECK ==========");
-    console.log("User ID:", user._id);
-    console.log("User Name:", user.name);
-    console.log("parentUnilevel:", user.parentUnilevel);
-
-    if (user.parentUnilevel) {
-      console.log("Calling activateReferralAndGiveBonus for sponsor:", user.parentUnilevel);
-      const bonusResult = await activateReferralAndGiveBonus(
-        user.parentUnilevel,
-        user._id,
-        finalPlanName,
-        amountNum
-      );
-      console.log("Bonus Result:", JSON.stringify(bonusResult, null, 2));
-    } else {
-      console.log("No parentUnilevel found - No sponsor bonus will be given");
-    }
-
-  
-    await distributeLevelIncome(user, amountNum, finalPlanName);
-
-    
     try {
       await addTransaction({
         userId,
@@ -662,11 +560,6 @@ export const buyPlan = async (req, res) => {
         planName: finalPlanName.toUpperCase(),
         amount: amountNum,
         purchaseDate: new Date(),
-      },
-      rankInfo: {
-        rank: currentRank,
-        minInvestment: limits.min,
-        maxInvestment: limits.max,
       },
       wallet: {
         remainingBalance: user.wallet,
@@ -704,21 +597,16 @@ export const getInvestment = async (req, res) => {
 
     const plans = user.plans || [];
 
-    
     let totalInvested = 0;
     let totalReturns = 0;
     let pendingReturns = 0;
 
-    
     let activeCount = 0;
 
-  
     const activeInvestments = [];
 
-  
     const history = [];
 
-    
     const monthlyTrend = {};
 
     plans.forEach((plan) => {
@@ -732,7 +620,7 @@ export const getInvestment = async (req, res) => {
 
       const startDate = new Date(plan.purchaseDate);
       const endDate = new Date(
-        startDate.getTime() + limits.duration * 24 * 60 * 60 * 1000
+        startDate.getTime() + limits.duration * 24 * 60 * 60 * 1000,
       );
 
       const today = new Date();
@@ -747,19 +635,15 @@ export const getInvestment = async (req, res) => {
         activeCount++;
 
         const daysPassed = Math.floor(
-          (today - startDate) / (1000 * 60 * 60 * 24)
+          (today - startDate) / (1000 * 60 * 60 * 24),
         );
 
-        const daysRemaining = Math.max(
-          0,
-          limits.duration - daysPassed
-        );
+        const daysRemaining = Math.max(0, limits.duration - daysPassed);
 
-        const currentReturn =
-          (amount * limits.dailyPercent * daysPassed) / 100;
+        const currentReturn = (amount * limits.dailyPercent * daysPassed) / 100;
 
         totalReturns += currentReturn;
-        pendingReturns += (totalReturn - currentReturn);
+        pendingReturns += totalReturn - currentReturn;
 
         activeInvestments.push({
           plan: plan.planSelected || plan.name,
@@ -773,7 +657,6 @@ export const getInvestment = async (req, res) => {
         });
       }
 
-      
       history.push({
         plan: plan.planSelected || plan.name,
         amount: `$${amount}`,
@@ -783,16 +666,13 @@ export const getInvestment = async (req, res) => {
         status: isCompleted ? "Completed" : "Pending",
       });
 
-    
       const month = startDate.toLocaleString("default", {
         month: "short",
       });
 
-      monthlyTrend[month] =
-        (monthlyTrend[month] || 0) + totalReturn;
+      monthlyTrend[month] = (monthlyTrend[month] || 0) + totalReturn;
     });
 
-    
     const availablePlans = Object.keys(RANK_PLANS).map((rank) => {
       const p = RANK_PLANS[rank];
 
@@ -805,30 +685,23 @@ export const getInvestment = async (req, res) => {
       };
     });
 
-    
     return res.status(200).json({
       success: true,
 
-      
       summary: {
         totalInvested: `$${totalInvested.toFixed(2)}`,
         totalReturns: `$${totalReturns.toFixed(2)}`,
         pendingReturns: `$${pendingReturns.toFixed(2)}`,
       },
 
-  
       activeInvestmentsCount: activeCount,
 
-      
       monthlyEarningsTrend: monthlyTrend,
-
 
       availablePlans,
 
-      
       activeInvestments,
 
-      
       investmentHistory: history,
     });
   } catch (error) {
@@ -836,6 +709,115 @@ export const getInvestment = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
+    });
+  }
+};
+// ================== ADMIN: APPROVE BANK TRANSFER PAYMENT ==================
+export const approveBankTransferPayment = async (req, res) => {
+  try {
+    const { userId, paymentId } = req.body;
+
+    if (!userId || !paymentId) {
+      return res.status(400).json({
+        success: false,
+        message: "userId and paymentId required",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    // Find payment
+    const paymentIndex = user.payments.findIndex(
+      (p) => p._id.toString() === paymentId,
+    );
+    if (paymentIndex === -1) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Payment not found" });
+    }
+
+    const payment = user.payments[paymentIndex];
+    if (payment.paymentMethod !== "bank_transfer") {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "This is not a bank transfer payment",
+        });
+    }
+
+    if (payment.status === "completed") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Payment already approved" });
+    }
+
+    const amount = payment.amount;
+
+    // Update payment status
+    payment.status = "completed";
+    payment.verifiedAt = new Date();
+    payment.verifiedBy = req.admin._id;
+
+    // Get rank based on investment amount
+    const { rank, limits } = getRankByInvestment(amount);
+    user.userRank = rank;
+
+    // Start ROI based on rank
+    await startROI(user, amount, limits);
+
+    // Auto-enroll in Binary/Matrix/Unilevel
+    const planMap = {
+      binary: "Binary",
+      matrix: "Matrix",
+      unilevel: "Unilevel",
+    };
+
+    // Update plans array status
+    const planIndex = user.plans.findIndex(
+      (p) =>
+        p.paymentMethod === "bank_transfer" &&
+        p.transactionId === payment.transactionId,
+    );
+
+    if (planIndex !== -1) {
+      user.plans[planIndex].status = "active";
+    }
+
+    await user.save();
+
+    // Auto join tree
+    const freshUser = await User.findById(user._id);
+    const planToJoin = planMap[payment.plan?.toLowerCase()] || "Binary";
+
+    if (planToJoin === "Binary") await joinBinaryAuto(freshUser);
+    else if (planToJoin === "Matrix") await joinMatrixAuto(freshUser);
+    else if (planToJoin === "Unilevel") await joinUnilevelAuto(freshUser);
+
+    return res.status(200).json({
+      success: true,
+      message: "Bank transfer payment approved. ROI started.",
+      data: {
+        userId: user._id,
+        userName: user.name,
+        amount: amount,
+        rank: rank,
+        dailyROI: (amount * limits.dailyPercent) / 100,
+        maxEarning: amount + (amount * limits.roi) / 100,
+        duration: `${limits.duration} days`,
+        status: "active",
+      },
+    });
+  } catch (error) {
+    console.error("Approve Bank Transfer Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
     });
   }
 };
